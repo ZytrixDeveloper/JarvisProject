@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your account · J.A.R.V.I.S.</title>
+<meta name="theme-color" content="#02060b">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="index.html"><span class="logo-mark"></span><b>J.A.R.V.I.S.</b></a>
+    <nav class="nav-links"><a href="index.html#features">Features</a><a href="index.html#download">Download</a><a href="index.html#faq">FAQ</a></nav>
+    <button class="menu-btn" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+</header>
+
+<main class="account wrap">
+  <div class="spinner" id="loading"></div>
+
+  <div class="card auth-card" id="resetCard" hidden style="margin:0 auto 24px">
+    <h1>Set a new password</h1>
+    <p class="sub">Choose a new password for your account.</p>
+    <form id="resetForm">
+      <div class="field"><label for="newPass">New password</label><input id="newPass" type="password" minlength="8" autocomplete="new-password" required></div>
+      <button class="btn primary" type="submit">Save password</button>
+      <div class="msg" id="resetMsg"></div>
+    </form>
+  </div>
+
+  <div class="account-grid" id="accountGrid" hidden>
+    <aside class="card profile">
+      <div class="avatar" id="avatar"></div>
+      <h2 id="name"></h2>
+      <p id="email"></p>
+      <a class="btn primary" data-download href="#"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download Jarvis</a>
+      <button class="btn" id="signOut">Sign out</button>
+      <p class="note" id="joined"></p>
+    </aside>
+
+    <section class="card devices">
+      <h2>Your linked PCs</h2>
+      <p class="note" style="margin:-8px 0 16px">To link a PC, open Jarvis and click "Sign in with browser". Unlinking signs that PC out next time Jarvis starts.</p>
+      <div id="deviceList"><div class="spinner"></div></div>
+      <div class="msg" id="devMsg"></div>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/site.js"></script>
+<script>
+  const PC_ICON = '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>';
+
+  function ago(iso) {
+    const s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 90) return "just now";
+    if (s < 3600) return `${Math.round(s / 60)} min ago`;
+    if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+    return `${Math.round(s / 86400)} days ago`;
+  }
+
+  async function loadDevices() {
+    const list = $("#deviceList");
+    const { data, error } = await sb.from("devices").select("*").order("last_seen", { ascending: false });
+    if (error) {
+      list.innerHTML = "";
+      return showMsg($("#devMsg"), `Couldn't load devices: ${error.message}`);
+    }
+    if (!data.length) {
+      list.innerHTML = '<p class="empty">No PCs linked yet. Download Jarvis and sign in from the app.</p>';
+      return;
+    }
+    list.innerHTML = "";
+    for (const d of data) {
+      const online = Date.now() - new Date(d.last_seen) < 50 * 60 * 1000;
+      const row = document.createElement("div");
+      row.className = "device";
+      row.innerHTML = `${PC_ICON}<div><b></b><span><i class="dot ${online ? "on" : ""}"></i>${online ? "Active" : "Last seen " + ago(d.last_seen)} · v${escapeHtml(d.app_version || "?")} · linked ${new Date(d.linked_at).toLocaleDateString()}</span></div>`;
+      row.querySelector("b").textContent = d.device_name;
+      const btn = document.createElement("button");
+      btn.className = "btn small danger";
+      btn.textContent = "Unlink";
+      btn.addEventListener("click", async () => {
+        if (!confirm(`Unlink "${d.device_name}"? Jarvis on that PC will ask to sign in again.`)) return;
+        btn.disabled = true;
+        const { error: delErr } = await sb.from("devices").delete().eq("id", d.id);
+        if (delErr) { btn.disabled = false; return showMsg($("#devMsg"), delErr.message); }
+        loadDevices();
+      });
+      row.append(btn);
+      list.append(row);
+    }
+  }
+
+  async function init() {
+    const { data } = await sb.auth.getSession();
+    const user = data.session?.user;
+    if (!user) return location.replace("login.html?next=account.html");
+    $("#loading").hidden = true;
+    $("#accountGrid").hidden = false;
+    const name = displayName(user);
+    $("#avatar").textContent = name.slice(0, 1).toUpperCase();
+    $("#name").textContent = name;
+    $("#email").textContent = user.email;
+    $("#joined").textContent = `Member since ${new Date(user.created_at).toLocaleDateString()}`;
+    $all("[data-download]").forEach((a) => (a.href = DOWNLOAD_URL));
+    loadDevices();
+  }
+
+  sb.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") $("#resetCard").hidden = false;
+  });
+  if (new URLSearchParams(location.search).get("reset")) $("#resetCard").hidden = false;
+
+  $("#resetForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const password = $("#newPass").value;
+    if (password.length < 8) return showMsg($("#resetMsg"), "At least 8 characters, please.");
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) showMsg($("#resetMsg"), error.message);
+    else { showMsg($("#resetMsg"), "Password updated.", "ok"); setTimeout(() => ($("#resetCard").hidden = true), 1500); }
+  });
+
+  $("#signOut").addEventListener("click", async () => {
+    await sb.auth.signOut();
+    location.replace("index.html");
+  });
+
+  // Give supabase-js a moment to pick up tokens from an email confirmation link.
+  setTimeout(init, 150);
+</script>
+</body>
+</html>

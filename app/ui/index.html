@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>J.A.R.V.I.S.</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="hud.css">
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-vignette"></div>
+
+<header class="titlebar pywebview-drag-region">
+  <div class="brand pywebview-drag-region">
+    <span class="brand-mark"></span>
+    <span class="brand-name">J.A.R.V.I.S.</span>
+    <span class="brand-ver" id="ver"></span>
+  </div>
+  <div class="status-chip" id="statusChip"><i></i><span id="statusText">BOOTING</span></div>
+  <div class="spacer pywebview-drag-region"></div>
+  <button class="user-chip" id="userChip" hidden title="Account"></button>
+  <div class="win-btns">
+    <button id="btnSettings" title="Settings">
+      <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+    </button>
+    <button id="btnMin" title="Minimize"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+    <button id="btnMax" title="Maximize"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg></button>
+    <button id="btnClose" class="close" title="Hide to tray"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="col left">
+    <section class="card clock-card">
+      <div class="clock" id="clock">--:--</div>
+      <div class="date" id="date"></div>
+    </section>
+
+    <section class="card">
+      <h3>Diagnostics</h3>
+      <div class="gauges">
+        <div class="gauge" data-key="cpu"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="32"/><circle class="value" cx="40" cy="40" r="32"/></svg><b>--</b><span>CPU</span></div>
+        <div class="gauge" data-key="ram"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="32"/><circle class="value" cx="40" cy="40" r="32"/></svg><b>--</b><span>RAM</span></div>
+        <div class="gauge" data-key="gpu"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="32"/><circle class="value" cx="40" cy="40" r="32"/></svg><b>--</b><span>GPU</span></div>
+        <div class="gauge" data-key="battery"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="32"/><circle class="value" cx="40" cy="40" r="32"/></svg><b>--</b><span>Power</span></div>
+      </div>
+      <dl class="readouts">
+        <div><dt>VRAM</dt><dd id="vram">--</dd></div>
+        <div><dt>Disk C:</dt><dd id="disk">--</dd></div>
+        <div><dt>Uptime</dt><dd id="uptime">--</dd></div>
+      </dl>
+    </section>
+
+    <section class="card grow">
+      <h3>System check</h3>
+      <ul class="boot-list" id="bootList"></ul>
+    </section>
+  </aside>
+
+  <section class="col center">
+    <div class="reactor-wrap">
+      <canvas id="reactor"></canvas>
+      <div class="reactor-label" id="reactorLabel">INITIALISING</div>
+    </div>
+
+    <div class="dialogue">
+      <p class="line user" id="heard"></p>
+      <p class="line jarvis" id="reply"></p>
+    </div>
+
+    <form class="command" id="cmdForm" autocomplete="off">
+      <button type="button" class="mic" id="btnMic" title="Listen now">
+        <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <input id="cmdInput" placeholder="Say &quot;Hey Jarvis&quot; or type a command...">
+      <button type="submit" class="send" title="Send">
+        <svg viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+    <div class="hints" id="hints">
+      <button>What's on my screen?</button>
+      <button>What's the weather today?</button>
+      <button>Play lo-fi music on YouTube</button>
+      <button>System status report</button>
+      <button>What's in the news?</button>
+    </div>
+  </section>
+
+  <aside class="col right">
+    <section class="card grow">
+      <h3>Activity <button class="mini" id="btnClearLog" title="Clear">clear</button></h3>
+      <ul class="activity" id="activity"><li class="empty">No actions yet</li></ul>
+    </section>
+    <section class="card news-card">
+      <h3>Live news <button class="mini" id="btnNews" title="Refresh">refresh</button></h3>
+      <ul class="news" id="news"><li class="empty">Loading headlines...</li></ul>
+    </section>
+    <section class="card">
+      <h3>Visual feed <span class="feed-kind" id="feedKind"></span></h3>
+      <div class="feed" id="feed"><span>No scans yet. Ask "what's on my screen?"</span></div>
+    </section>
+  </aside>
+</main>
+
+<div class="overlay" id="confirmOverlay" hidden>
+  <div class="modal warn">
+    <div class="modal-tag">Confirmation required</div>
+    <p class="modal-text" id="confirmText"></p>
+    <div class="countdown"><i id="confirmBar"></i></div>
+    <div class="actions">
+      <button id="btnNo">Cancel</button>
+      <button id="btnYes" class="primary">Proceed</button>
+    </div>
+    <small>You can also say "yes" or "no".</small>
+  </div>
+</div>
+
+<div class="overlay" id="loginOverlay" hidden>
+  <div class="modal">
+    <div class="login-ring"></div>
+    <div class="modal-tag">Authentication required</div>
+    <h2>Link your Jarvis account</h2>
+    <p class="modal-text">Jarvis opens the website in your browser. Sign in there and this PC is linked to your account automatically.</p>
+    <div class="actions single"><button id="btnLink" class="primary">Sign in with browser</button></div>
+    <small id="linkStatus">No account yet? You can create one on the same page.</small>
+  </div>
+</div>
+
+<aside class="drawer" id="settings" aria-hidden="true">
+  <div class="drawer-head">
+    <h2>Settings</h2>
+    <button id="btnCloseSettings" title="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <form id="settingsForm" class="settings">
+    <label>Jarvis calls you<input name="address_as" placeholder="sir"></label>
+    <label>Voice<select name="voice" id="voiceSelect"></select></label>
+    <label class="toggle"><input type="checkbox" name="voice_enabled"><span>Speak replies out loud</span></label>
+    <label>Wake word sensitivity <output id="sensOut"></output>
+      <input type="range" name="wake_sensitivity" min="0.1" max="0.8" step="0.05"></label>
+    <label>Home city (for weather)<input name="home_city" placeholder="e.g. Bratislava"></label>
+    <label>Protected apps (never closed)<input name="protected_apps" placeholder="whatsapp, discord"></label>
+    <label class="toggle"><input type="checkbox" name="ask_before_risky"><span>Ask before risky actions</span></label>
+    <label class="toggle"><input type="checkbox" name="start_with_windows"><span>Start with Windows</span></label>
+    <details>
+      <summary>Advanced</summary>
+      <label>AI model<select name="model">
+        <option value="qwen3-vl:4b-instruct">Fast: qwen3-vl 4B (3.3 GB, works while gaming)</option>
+        <option value="qwen3-vl:8b-instruct">Quality: qwen3-vl 8B (6.2 GB, needs a free GPU)</option>
+      </select></label>
+      <label>Speech model<select name="whisper_model">
+        <option value="base.en">base.en (fastest)</option>
+        <option value="small.en">small.en (balanced)</option>
+        <option value="medium.en">medium.en (most accurate, slow)</option>
+      </select></label>
+      <p class="note">Model changes apply after restarting Jarvis.</p>
+    </details>
+    <div class="drawer-actions">
+      <button type="submit" class="primary">Save</button>
+      <button type="button" id="btnNewChat">New conversation</button>
+      <button type="button" id="btnDataFolder">Open data folder</button>
+      <button type="button" id="btnSignOut" hidden>Unlink account</button>
+      <button type="button" id="btnQuit" class="danger">Quit Jarvis</button>
+    </div>
+    <p class="note" id="hotkeyNote"></p>
+  </form>
+</aside>
+
+<div class="toast" id="toast"></div>
+<script src="hud.js"></script>
+</body>
+</html>

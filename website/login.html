@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · J.A.R.V.I.S.</title>
+<meta name="theme-color" content="#02060b">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="index.html"><span class="logo-mark"></span><b>J.A.R.V.I.S.</b></a>
+    <nav class="nav-links"><a href="index.html#features">Features</a><a href="index.html#download">Download</a></nav>
+    <button class="menu-btn" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+</header>
+
+<main class="auth-page">
+  <div class="card auth-card">
+    <span class="eyebrow"><i></i>Secure access</span>
+    <h1 id="title">Welcome back</h1>
+    <p class="sub" id="subtitle">Sign in to manage your Jarvis devices.</p>
+
+    <div class="tabs" role="tablist">
+      <button type="button" data-mode="signin" class="active">Sign in</button>
+      <button type="button" data-mode="signup">Create account</button>
+    </div>
+
+    <div class="oauth" id="oauth" hidden></div>
+    <div class="divider" hidden><span>or use email</span></div>
+
+    <form id="authForm" novalidate>
+      <div class="field" id="nameField" hidden>
+        <label for="name">Name (what Jarvis calls you)</label>
+        <input id="name" autocomplete="name" maxlength="40">
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" minlength="8" required>
+      </div>
+      <button class="btn primary" id="submitBtn" type="submit">Sign in</button>
+      <div class="msg" id="msg" role="status"></div>
+      <div class="link-row">
+        <a href="#" id="forgot">Forgot password?</a>
+        <a href="index.html">Back to home</a>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/site.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const rawNext = params.get("next") || "account.html";
+  // Only allow relative, same-site redirects.
+  const next = /^[a-z0-9_\-]+\.html(\?[^#]*)?$/i.test(rawNext) ? rawNext : "account.html";
+  let mode = params.get("mode") === "signup" ? "signup" : "signin";
+
+  const form = $("#authForm"), msg = $("#msg"), btn = $("#submitBtn");
+
+  function setMode(m) {
+    mode = m;
+    $all(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.mode === m));
+    $("#nameField").hidden = m !== "signup";
+    $("#password").autocomplete = m === "signup" ? "new-password" : "current-password";
+    $("#title").textContent = m === "signup" ? "Create your account" : "Welcome back";
+    $("#subtitle").textContent = m === "signup"
+      ? "One account for the website and every PC running Jarvis."
+      : "Sign in to manage your Jarvis devices.";
+    btn.textContent = m === "signup" ? "Create account" : "Sign in";
+    msg.className = "msg";
+  }
+  $all(".tabs button").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+  setMode(mode);
+
+  sb.auth.getSession().then(({ data }) => { if (data.session) location.replace(next); });
+
+  renderOAuthButtons($("#oauth"), async (provider) => {
+    const { error } = await sb.auth.signInWithOAuth({
+      provider, options: { redirectTo: new URL(next, location.href).href },
+    });
+    if (error) showMsg(msg, error.message);
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("#email").value.trim();
+    const password = $("#password").value;
+    if (!email || !email.includes("@")) return showMsg(msg, "Enter a valid email address.");
+    if (password.length < 8) return showMsg(msg, "Password must be at least 8 characters.");
+    btn.disabled = true;
+    try {
+      if (mode === "signup") {
+        const { data, error } = await sb.auth.signUp({
+          email, password,
+          options: {
+            data: { full_name: $("#name").value.trim() || email.split("@")[0] },
+            emailRedirectTo: new URL("account.html", location.href).href,
+          },
+        });
+        if (error) throw error;
+        if (data.session) location.replace(next);
+        else showMsg(msg, "Almost done! Check your email and click the confirmation link, then sign in.", "ok");
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        location.replace(next);
+      }
+    } catch (err) {
+      showMsg(msg, err.message === "Invalid login credentials" ? "Wrong email or password." : err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("#forgot").addEventListener("click", async (e) => {
+    e.preventDefault();
+    const email = $("#email").value.trim();
+    if (!email) return showMsg(msg, "Type your email above first, then click 'Forgot password?' again.");
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: new URL("account.html?reset=1", location.href).href,
+    });
+    if (error) showMsg(msg, error.message);
+    else showMsg(msg, "If that email has an account, a reset link is on its way.", "ok");
+  });
+</script>
+</body>
+</html>

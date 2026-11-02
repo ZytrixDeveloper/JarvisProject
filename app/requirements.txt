@@ -1,0 +1,34 @@
+# Brain
+ollama>=0.5
+ddgs
+requests
+
+# Window / HUD
+pywebview>=5
+pystray
+Pillow
+
+# Voice
+sounddevice
+numpy
+faster-whisper
+openwakeword
+onnxruntime
+edge-tts
+miniaudio
+pyttsx3
+
+# PC control
+psutil
+pyautogui
+pyperclip
+pycaw
+comtypes
+screen-brightness-control
+send2trash
+keyboard
+mss
+opencv-python
+
+# Packaging
+pyinstaller

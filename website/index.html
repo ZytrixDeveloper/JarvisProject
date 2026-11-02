@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J.A.R.V.I.S. - Your personal AI assistant for Windows</title>
+<meta name="description" content="Jarvis is a voice-controlled AI assistant for Windows that runs on your own PC. Say 'Hey Jarvis' to control apps, files, music and more.">
+<meta property="og:title" content="J.A.R.V.I.S. - personal AI assistant for Windows">
+<meta property="og:description" content="Talk to your PC. Local AI, voice control, screen vision. Free.">
+<meta name="theme-color" content="#02060b">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="index.html"><span class="logo-mark"></span><b>J.A.R.V.I.S.</b></a>
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#download">Download</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-cta" id="navAuth"></div>
+    <button class="menu-btn" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <span class="eyebrow"><i></i>Beta v<span data-version></span> · Windows</span>
+        <h1>Just A Rather <span>Very Intelligent</span> System</h1>
+        <p class="lead">Talk to your PC like Tony Stark. Say <b>"Hey Jarvis"</b> and it opens apps, finds files, plays music, reads your screen and answers questions, all powered by an AI that runs on your own computer.</p>
+        <div class="hero-cta">
+          <a class="btn primary" href="#download">
+            <svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download for Windows</a>
+          <a class="btn" href="login.html?mode=signup">Create free account</a>
+        </div>
+        <div class="stats">
+          <div><b>100%</b><span>Local AI</span></div>
+          <div><b>27</b><span>PC skills</span></div>
+          <div><b>0 €</b><span>Per month</span></div>
+        </div>
+      </div>
+      <div class="reactor-stage">
+        <canvas id="holo" aria-hidden="true"></canvas>
+        <div class="float-chip c1"><i></i>Opening Spotify...</div>
+        <div class="float-chip c2"><i></i>Screen scan complete</div>
+        <div class="float-chip c3"><i></i>All systems online</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="demo-section">
+    <div class="wrap">
+      <div class="section-head center-head reveal">
+        <div class="tag">Live demo</div>
+        <h2>Just say what you need</h2>
+        <p>Jarvis understands normal sentences, picks the right action and tells you what it did.</p>
+      </div>
+      <div class="card terminal reveal">
+        <div class="term-bar"><i></i><i></i><i></i>&nbsp; jarvis · voice session</div>
+        <div class="term-body" id="demo" aria-live="off"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="features">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="tag">Features</div>
+        <h2>An assistant that actually does things</h2>
+        <p>Not just a chatbot. Jarvis is wired into Windows, so it can act, not only talk.</p>
+      </div>
+      <div class="grid-3">
+        <article class="card feature reveal" data-tilt>
+          <div class="icon"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
+          <h3>Voice control</h3>
+          <p>Wake it with "Hey Jarvis" or a hotkey. It understands you offline and talks back in a calm British voice.</p>
+        </article>
+        <article class="card feature reveal" data-tilt>
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M9 3h6M12 3v3M5 9a7 7 0 0 1 14 0v4a7 7 0 0 1-14 0Z"/><path d="M9 12h.01M15 12h.01M9.5 16h5"/></svg></div>
+          <h3>Local AI brain</h3>
+          <p>Runs Qwen3-VL through Ollama on your own GPU. No subscription, no cloud, your conversations stay on your PC.</p>
+        </article>
+        <article class="card feature reveal" data-tilt>
+          <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
+          <h3>Full PC control</h3>
+          <p>Open and close apps, type for you, manage files, change volume and brightness, control music, lock or restart.</p>
+        </article>
+        <article class="card feature reveal" data-tilt>
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <h3>Screen &amp; camera vision</h3>
+          <p>Ask "what's on my screen?" to explain errors, or "scan this" to identify objects through your webcam.</p>
+        </article>
+        <article class="card feature reveal" data-tilt>
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <h3>Safety first</h3>
+          <p>Asks before deleting, shutting down or running commands. Deletes go to the Recycle Bin. Protected apps are never closed.</p>
+        </article>
+        <article class="card feature reveal" data-tilt>
+          <div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div>
+          <h3>Your account</h3>
+          <p>Sign in once in the browser and your PC is linked. See and unlink your devices any time from your account page.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="how">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="tag">How it works</div>
+        <h2>From your voice to action in seconds</h2>
+        <p>Every step runs on your machine, except the optional web search and voice.</p>
+      </div>
+      <div class="steps">
+        <div class="card step reveal" data-tilt><h3>Wake word</h3><p>A tiny neural net listens only for "Hey Jarvis".</p><small>openWakeWord</small></div>
+        <div class="card step reveal" data-tilt><h3>Speech to text</h3><p>Your sentence is transcribed on your CPU.</p><small>Whisper</small></div>
+        <div class="card step reveal" data-tilt><h3>Thinking</h3><p>The local AI decides what to do and which tools to use.</p><small>Qwen3-VL · Ollama</small></div>
+        <div class="card step reveal" data-tilt><h3>Action</h3><p>Jarvis controls apps, files, media or looks at your screen.</p><small>27 PC skills</small></div>
+        <div class="card step reveal" data-tilt><h3>Reply</h3><p>It tells you what it did, out loud and in the HUD.</p><small>Neural voice</small></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="section-head center-head reveal">
+        <div class="tag">Try saying</div>
+        <h2>Things Jarvis can do today</h2>
+      </div>
+      <div class="chips reveal">
+        <span>"Open Chrome"</span><span>"Close Notepad"</span><span>"Play Daft Punk on YouTube"</span>
+        <span>"Next song"</span><span>"Volume to 30"</span><span>"Brightness 70%"</span>
+        <span>"What's the weather?"</span><span>"Who won the match last night?"</span>
+        <span>"What's on my screen?"</span><span>"What am I holding?"</span><span>"Take a screenshot"</span>
+        <span>"Find my CV PDF"</span><span>"Write a shopping list to a file"</span>
+        <span>"Make a folder called School"</span><span>"Type hello world"</span><span>"Press Ctrl+S"</span>
+        <span>"Set a 10 minute pizza timer"</span><span>"System status"</span><span>"Lock my PC"</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="download">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="tag">Download</div>
+        <h2>Get Jarvis for Windows</h2>
+      </div>
+      <div class="card download-card reveal" data-tilt>
+        <div>
+          <span class="badge">BETA</span>
+          <h3>Jarvis v<span data-version></span></h3>
+          <p class="meta">Windows 10 / 11 · 64-bit · free</p>
+          <a class="btn primary" data-download href="#">
+            <svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download installer (.exe)</a>
+          <ol class="install">
+            <li>Install <a href="https://ollama.com/download" target="_blank" rel="noopener">Ollama</a> (free, runs the AI).</li>
+            <li>Run <b>Jarvis-Setup.exe</b> and follow the installer.</li>
+            <li>Open Jarvis and click "Sign in with browser" (Google or email).</li>
+            <li>First start downloads the AI model (~6 GB). After that, say "Hey Jarvis".</li>
+          </ol>
+          <p class="note">Windows SmartScreen may warn you because the app isn't code-signed yet. Click <b>More info → Run anyway</b>.</p>
+        </div>
+        <div>
+          <h3 style="font-size:18px">Requirements</h3>
+          <ul class="req" style="margin-top:16px">
+            <li>Windows 10 or 11, 64-bit</li>
+            <li>16 GB RAM (8 GB works, slower)</li>
+            <li>NVIDIA GPU with 6+ GB VRAM recommended</li>
+            <li>~10 GB free disk space</li>
+            <li>Microphone (and webcam for scanning)</li>
+            <li>Internet for the voice and web search</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="roadmap">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="tag">Roadmap</div>
+        <h2>Where Jarvis is going</h2>
+      </div>
+      <div class="roadmap">
+        <div class="card reveal done">
+          <h3><span class="badge" style="color:var(--green);border-color:rgba(61,255,168,.4)">NOW</span> Version 1</h3>
+          <ul>
+            <li>"Hey Jarvis" wake word + voice replies</li>
+            <li>Local AI brain with 27 PC skills</li>
+            <li>Screen and webcam vision</li>
+            <li>Confirmations + protected apps</li>
+            <li>Iron Man style HUD with live diagnostics</li>
+            <li>Website account linked to the app</li>
+          </ul>
+        </div>
+        <div class="card reveal">
+          <h3><span class="badge">NEXT</span> Main version</h3>
+          <ul>
+            <li>Long-term memory of your preferences</li>
+            <li>Reminders, alarms and a morning briefing</li>
+            <li>Face recognition: only answers to you</li>
+            <li>Hand-gesture control through the webcam</li>
+            <li>Discord / WhatsApp messages (with confirmation)</li>
+            <li>Phone remote, plugins and auto-updates</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="faq">
+    <div class="wrap">
+      <div class="section-head center-head reveal">
+        <div class="tag">FAQ</div>
+        <h2>Questions</h2>
+      </div>
+      <div class="faq">
+        <details class="card reveal"><summary>Is Jarvis free?</summary><p>Yes. The AI runs on your own PC through Ollama, so there are no monthly costs.</p></details>
+        <details class="card reveal"><summary>Does it send my conversations anywhere?</summary><p>No. Your voice is transcribed on your PC and the AI runs locally. Only web searches and the speaking voice use the internet. Your account only stores your email and which PCs are linked.</p></details>
+        <details class="card reveal"><summary>Can it break my computer?</summary><p>Jarvis asks before anything risky (deleting, shutting down, running commands), sends deleted files to the Recycle Bin, refuses to touch system folders and never closes apps on your protected list.</p></details>
+        <details class="card reveal"><summary>Which languages does it understand?</summary><p>Version 1 listens and speaks English. More languages are planned.</p></details>
+        <details class="card reveal"><summary>My PC has no NVIDIA GPU. Will it work?</summary><p>Yes, but answers are slower because the AI runs on the CPU. You can pick a smaller model in Settings.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="logo" href="index.html"><span class="logo-mark"></span><b>J.A.R.V.I.S.</b></a>
+    <nav><a href="#download">Download</a><a href="login.html">Account</a><a href="https://github.com/ZytrixDeveloper/JarvisProject" target="_blank" rel="noopener">GitHub</a></nav>
+    <p>© <span id="year"></span> ZytrixDeveloper · Fan-made project, not affiliated with Marvel.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/site.js"></script>
+<script type="module">
+  import { initHologram } from "./assets/hologram.js";
+  const holo = document.getElementById("holo");
+  if (!initHologram(holo)) {
+    // No WebGL: swap in the 2D animated reactor.
+    const flat = document.createElement("canvas");
+    flat.id = "reactor";
+    holo.replaceWith(flat);
+    initReactor(flat);
+  }
+</script>
+</body>
+</html>

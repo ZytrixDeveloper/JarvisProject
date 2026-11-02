@@ -1,0 +1,20 @@
+# Python
+app/.venv/
+__pycache__/
+*.pyc
+*.spec
+
+# Build output (published as GitHub Releases instead)
+app/build/
+app/dist/
+dist/
+app/assets/wizard.bmp
+app/assets/wizard-small.bmp
+
+# Local / private
+.claude/
+*.log
+*.env
+.env*
+*secret*
+*api key*

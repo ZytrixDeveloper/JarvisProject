@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link your PC · J.A.R.V.I.S.</title>
+<meta name="theme-color" content="#02060b">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="index.html"><span class="logo-mark"></span><b>J.A.R.V.I.S.</b></a>
+  </div>
+</header>
+
+<main class="auth-page">
+  <div class="card auth-card">
+    <span class="eyebrow"><i></i>Device authorisation</span>
+    <h1>Link this PC to Jarvis</h1>
+    <p class="sub">Sign in to activate Jarvis on this computer.</p>
+
+    <div id="bad" hidden>
+      <div class="msg show error">This page has to be opened from the Jarvis app. Open Jarvis and click "Sign in with browser".</div>
+    </div>
+
+    <div id="linkUi" hidden>
+      <div class="device-banner">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+        <div><b id="deviceName"></b><span>Jarvis v<span id="appVersion"></span> wants access to your account</span></div>
+      </div>
+
+      <div class="oauth" id="oauth" hidden></div>
+      <div class="divider" hidden><span>or use email</span></div>
+
+      <form id="linkForm">
+        <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" required></div>
+        <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required></div>
+        <button class="btn primary" id="linkBtn" type="submit">Authorise Jarvis</button>
+      </form>
+      <div class="msg" id="msg" role="status"></div>
+      <div class="link-row">
+        <a href="login.html?mode=signup" target="_blank" rel="noopener">No account? Create one</a>
+        <a href="#" id="forgotLink">Forgot password?</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/site.js"></script>
+<script>
+  const p = new URLSearchParams(location.search);
+  const port = Number(p.get("port"));
+  const state = p.get("state") || "";
+  const deviceId = p.get("device_id") || "";
+  const deviceName = (p.get("device_name") || "Windows PC").slice(0, 60);
+  const version = (p.get("version") || "").slice(0, 20);
+  const valid = Number.isInteger(port) && port > 1023 && port < 65536 && state.length >= 20 && /^[a-f0-9]{32}$/.test(deviceId);
+  const msg = $("#msg");
+  const DEVICE_KEY = "jarvis-device-link";
+
+  // The PC gets its own session, separate from this browser's login, so the two
+  // never fight over refresh tokens. PKCE + sessionStorage survives the OAuth redirect.
+  function deviceClient() {
+    return window.supabase.createClient(JARVIS.SUPABASE_URL, JARVIS.SUPABASE_KEY, {
+      auth: { flowType: "pkce", storage: window.sessionStorage, storageKey: DEVICE_KEY,
+              persistSession: true, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+  }
+
+  function linkUrl() {
+    const u = new URL(location.href);
+    for (const k of ["code", "error", "error_code", "error_description"]) u.searchParams.delete(k);
+    return u.href;
+  }
+
+  async function finishLink(client, session) {
+    showMsg(msg, "Authorised. Registering this PC...", "ok");
+    const { error } = await client.from("devices").upsert({
+      user_id: session.user.id, device_id: deviceId, device_name: deviceName,
+      app_version: version, last_seen: new Date().toISOString(),
+    }, { onConflict: "user_id,device_id" });
+    if (error) throw new Error(`Couldn't register this PC: ${error.message}`);
+
+    const tokens = { state, access_token: session.access_token, refresh_token: session.refresh_token };
+    for (const k of Object.keys(sessionStorage)) if (k.startsWith(DEVICE_KEY)) sessionStorage.removeItem(k);
+    showMsg(msg, "Handing over to Jarvis...", "ok");
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = `http://127.0.0.1:${port}/callback`;
+    for (const [k, v] of Object.entries(tokens)) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = k;
+      input.value = v;
+      form.append(input);
+    }
+    document.body.append(form);
+    form.submit();
+  }
+
+  async function init() {
+    if (!valid) { $("#bad").hidden = false; return; }
+    $("#linkUi").hidden = false;
+    $("#deviceName").textContent = deviceName;
+    $("#appVersion").textContent = version || "?";
+
+    // Back from Google/Apple?
+    if (p.get("error_description")) showMsg(msg, p.get("error_description"));
+    if (p.get("code")) {
+      const client = deviceClient();
+      const { data, error } = await client.auth.exchangeCodeForSession(p.get("code"));
+      history.replaceState(null, "", linkUrl());
+      if (error) showMsg(msg, `Sign-in failed: ${error.message}`);
+      else return finishLink(client, data.session).catch((e) => showMsg(msg, e.message));
+    }
+
+    renderOAuthButtons($("#oauth"), async (provider) => {
+      const { error } = await deviceClient().auth.signInWithOAuth({ provider, options: { redirectTo: linkUrl() } });
+      if (error) showMsg(msg, error.message);
+    });
+    const { data } = await sb.auth.getSession();
+    if (data.session?.user?.email) {
+      $("#email").value = data.session.user.email;
+      $("#password").focus();
+    }
+  }
+
+  $("#forgotLink").addEventListener("click", async (e) => {
+    e.preventDefault();
+    const email = $("#email").value.trim();
+    if (!email) return showMsg(msg, "Type your email first.");
+    await sb.auth.resetPasswordForEmail(email, { redirectTo: new URL("account.html?reset=1", location.href).href });
+    showMsg(msg, "If that email has an account, a reset link is on its way.", "ok");
+  });
+
+  $("#linkForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = $("#linkBtn");
+    btn.disabled = true;
+    btn.textContent = "Authorising...";
+    try {
+      const client = deviceClient();
+      const { data, error } = await client.auth.signInWithPassword({
+        email: $("#email").value.trim(), password: $("#password").value,
+      });
+      if (error) throw new Error(error.message === "Invalid login credentials" ? "Wrong email or password." : error.message);
+      await finishLink(client, data.session);
+    } catch (err) {
+      showMsg(msg, err.message);
+      btn.disabled = false;
+      btn.textContent = "Authorise Jarvis";
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>
