@@ -22,7 +22,9 @@ def main():
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Jarvis.Assistant")
 
     from jarvis_core.app import JarvisApp
-    JarvisApp(quiet="--no-voice" in sys.argv).run()
+    # --no-voice: no mic/speech.  --test: no mic/speech and no account lock (for development).
+    test = "--test" in sys.argv
+    JarvisApp(quiet=test or "--no-voice" in sys.argv, require_account=not test).run()
 
 
 if __name__ == "__main__":

@@ -96,7 +96,7 @@ class Api:
 
 
 class JarvisApp:
-    def __init__(self, quiet=False):
+    def __init__(self, quiet=False, require_account=True):
         self.quiet = quiet  # --no-voice: no microphone, no speaking (for testing)
         self.settings = Settings()
         self.window = None
@@ -111,6 +111,8 @@ class JarvisApp:
         if quiet:
             self.voice.speak = lambda text: None
         self.account = Account(self.settings)
+        if not require_account:
+            self.account.configured = False
 
     # ------------------------------------------------------------ events to the HUD
 
