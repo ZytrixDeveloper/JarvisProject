@@ -235,6 +235,11 @@ document.addEventListener("DOMContentLoaded", () => {
   initDemo($("#demo"));
   $all("[data-download]").forEach((a) => (a.href = DOWNLOAD_URL));
   $all("[data-version]").forEach((el) => (el.textContent = JARVIS.VERSION));
+  // Show the newest published version automatically.
+  fetch(`https://api.github.com/repos/${JARVIS.GITHUB_REPO}/releases/latest`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((rel) => rel?.tag_name && $all("[data-version]").forEach((el) => (el.textContent = rel.tag_name.replace(/^v/, ""))))
+    .catch(() => {});
   const y = $("#year");
   if (y) y.textContent = new Date().getFullYear();
 });

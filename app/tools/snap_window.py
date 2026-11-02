@@ -1,5 +1,5 @@
 """Dev helper: save a screenshot of only the Jarvis window (even if other windows cover it).
-Usage: python tools/snap_window.py out.png"""
+Usage: python tools/snap_window.py out.png ["Window title"]"""
 import ctypes
 import sys
 from ctypes import wintypes
@@ -8,7 +8,7 @@ from PIL import Image
 
 user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
 user32.SetProcessDPIAware()
-hwnd = user32.FindWindowW(None, "J.A.R.V.I.S.")
+hwnd = user32.FindWindowW(None, sys.argv[2] if len(sys.argv) > 2 else "J.A.R.V.I.S.")
 if not hwnd:
     sys.exit("Jarvis window not found")
 rect = wintypes.RECT()

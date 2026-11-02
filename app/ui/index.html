@@ -21,6 +21,7 @@
   </div>
   <div class="status-chip" id="statusChip"><i></i><span id="statusText">BOOTING</span></div>
   <div class="spacer pywebview-drag-region"></div>
+  <button class="user-chip update-chip" id="updateChip" hidden title="Update available">Update ready</button>
   <button class="user-chip" id="userChip" hidden title="Account"></button>
   <div class="win-btns">
     <button id="btnSettings" title="Settings">
@@ -120,6 +121,22 @@
   </div>
 </div>
 
+<div class="overlay" id="updateOverlay" hidden>
+  <div class="modal">
+    <div class="login-ring"></div>
+    <div class="modal-tag">Update available</div>
+    <h2>Jarvis v<span id="updVersion"></span></h2>
+    <p class="note" style="margin-top:6px">You have v<span id="updCurrent"></span></p>
+    <pre class="modal-text update-notes" id="updNotes"></pre>
+    <div class="countdown" id="updBarWrap" hidden><i id="updBar" style="width:0%"></i></div>
+    <div class="actions">
+      <button id="btnUpdLater">Later</button>
+      <button id="btnUpdate" class="primary">Update Jarvis</button>
+    </div>
+    <small id="updStatus">Jarvis restarts by itself when the update is installed.</small>
+  </div>
+</div>
+
 <div class="overlay" id="loginOverlay" hidden>
   <div class="modal">
     <div class="login-ring"></div>
@@ -146,6 +163,8 @@
     <label>Protected apps (never closed)<input name="protected_apps" placeholder="whatsapp, discord"></label>
     <label class="toggle"><input type="checkbox" name="ask_before_risky"><span>Ask before risky actions</span></label>
     <label class="toggle"><input type="checkbox" name="show_overlay"><span>Glowing screen overlay while Jarvis works</span></label>
+    <label class="toggle"><input type="checkbox" name="clap_to_wake"><span>Clap twice to wake Jarvis</span></label>
+    <label class="toggle"><input type="checkbox" name="show_on_wake"><span>Pop up Jarvis when woken</span></label>
     <label class="toggle"><input type="checkbox" name="start_with_windows"><span>Start with Windows</span></label>
     <details>
       <summary>Advanced</summary>
@@ -163,6 +182,7 @@
     <div class="drawer-actions">
       <button type="submit" class="primary">Save</button>
       <button type="button" id="btnNewChat">New conversation</button>
+      <button type="button" id="btnCheckUpdates">Check for updates</button>
       <button type="button" id="btnDataFolder">Open data folder</button>
       <button type="button" id="btnSignOut" hidden>Unlink account</button>
       <button type="button" id="btnQuit" class="danger">Quit Jarvis</button>

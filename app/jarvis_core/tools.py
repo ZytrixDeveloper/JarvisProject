@@ -574,6 +574,7 @@ class Toolbox:
         if s.get("gpu") is not None:
             parts.append(f"GPU {s['gpu']}%, VRAM {s['vram']}")
         parts.append(f"uptime {s['uptime']}")
+        parts.append(f"{user32.GetSystemMetrics(80)} monitor(s)")  # SM_CMONITORS
         return ", ".join(parts)
 
     @tool()
@@ -899,26 +900,39 @@ class Toolbox:
 
     # ------------------------------------------------------------ vision
 
-    def _grab_screen(self):
+    def _active_monitor(self, monitors) -> int:
+        """Index (1..n) of the monitor showing the window the user last used."""
+        rect = wintypes.RECT()
+        if self.focus.last and user32.GetWindowRect(self.focus.last, ctypes.byref(rect)):
+            cx, cy = (rect.left + rect.right) // 2, (rect.top + rect.bottom) // 2
+            for i, m in enumerate(monitors[1:], 1):
+                if m["left"] <= cx < m["left"] + m["width"] and m["top"] <= cy < m["top"] + m["height"]:
+                    return i
+        return 1
+
+    def _grab_screen(self, screen: int = -1):
         import mss
         from PIL import Image
         hidden = self.ctx.hide_hud()
         try:
             with mss.mss() as sct:
-                shot = sct.grab(sct.monitors[1])
+                mons = sct.monitors  # [0] = all monitors together, [1..n] = each monitor
+                index = self._active_monitor(mons) if screen < 0 else screen if screen < len(mons) else 0
+                shot = sct.grab(mons[index])
         finally:
             if hidden:
                 self.ctx.show_hud()
         return Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
 
     @tool()
-    def look_at_screen(self, question: str = "Describe what is on the screen.") -> str:
+    def look_at_screen(self, question: str = "Describe what is on the screen.", screen: int = -1) -> str:
         """Look at the user's screen and answer a question about it (read errors, describe, help).
 
         Args:
             question: what to find out from the screen
+            screen: -1 = the monitor the user is working on (default), 0 = all monitors, 1/2/3 = that monitor
         """
-        jpeg = _jpeg(self._grab_screen())
+        jpeg = _jpeg(self._grab_screen(screen), max_side=1600 if screen == 0 else 1280)
         self.ctx.capture("screen", jpeg)
         return self.ctx.vision(question, jpeg)
 
@@ -951,11 +965,15 @@ class Toolbox:
         return self.ctx.vision(question, jpeg)
 
     @tool()
-    def take_screenshot(self) -> str:
-        """Save a screenshot of the screen to Pictures/Jarvis."""
+    def take_screenshot(self, screen: int = 0) -> str:
+        """Save a screenshot to Pictures/Jarvis.
+
+        Args:
+            screen: 0 = all monitors (default), 1/2/3 = that monitor, -1 = the one the user is working on
+        """
         SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
         path = SCREENSHOT_DIR / f"screenshot_{dt.datetime.now():%Y%m%d_%H%M%S}.png"
-        image = self._grab_screen()
+        image = self._grab_screen(screen)
         image.save(path)
         self.ctx.capture("screen", _jpeg(image, 640))
         return f"Screenshot saved to {path}."
@@ -974,7 +992,8 @@ def _age(published: str) -> str:
         return f"{max(1, minutes)} min ago"
     if minutes < 1440:
         return f"{minutes // 60} h ago"
-    return f"{minutes // 1440} days ago"
+    days = minutes // 1440
+    return f"{days} day{'s' if days > 1 else ''} ago"
 
 
 def fetch_news(topic: str = "", count: int = 8) -> list[dict]:

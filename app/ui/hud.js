@@ -280,6 +280,23 @@
       $("disk").textContent = `${s.disk}% used`;
       $("uptime").textContent = s.uptime;
     },
+    update({ version, current, notes }) {
+      $("updVersion").textContent = version;
+      $("updCurrent").textContent = current;
+      $("updNotes").textContent = notes || "Improvements and fixes.";
+      $("updateChip").hidden = false;
+      $("updateOverlay").hidden = false;
+    },
+    update_progress({ pct, installing, error }) {
+      $("updBarWrap").hidden = false;
+      if (error) {
+        $("updStatus").textContent = error;
+        $("btnUpdate").disabled = false;
+        return;
+      }
+      $("updBar").style.width = `${pct}%`;
+      $("updStatus").textContent = installing ? "Installing... Jarvis will restart in a moment." : `Downloading update... ${pct}%`;
+    },
     weather({ text }) {
       const short = text.replace(/\. Today.*$/, "").replace(/, humidity.*$/, "");
       $("weather").textContent = short;
@@ -375,6 +392,10 @@
     $("btnClearLog").addEventListener("click", () => { $("activity").innerHTML = '<li class="empty">No actions yet</li>'; });
     $("btnNews").addEventListener("click", () => api?.refresh_news(""));
     $("btnHub").addEventListener("click", () => api?.open_news_hub());
+    $("btnUpdate").addEventListener("click", () => { $("btnUpdate").disabled = true; api?.install_update(); });
+    $("btnUpdLater").addEventListener("click", () => { $("updateOverlay").hidden = true; });
+    $("updateChip").addEventListener("click", () => { $("updateOverlay").hidden = false; });
+    $("btnCheckUpdates").addEventListener("click", () => { api?.check_updates(); toast("Checking for updates..."); });
     $("btnNewChat").addEventListener("click", () => { api?.new_conversation(); toast("Started a new conversation"); });
     $("btnDataFolder").addEventListener("click", () => api?.open_data_folder());
     $("btnSignOut").addEventListener("click", () => { api?.sign_out(); openSettings(false); });

@@ -15,6 +15,7 @@ import winreg
 import webview
 
 from . import tools as tools_mod
+from . import updater
 from .account import Account
 from .brain import Brain
 from .config import APP_NAME, APP_VERSION, DATA_DIR, FROZEN, Settings, resource_path
@@ -131,6 +132,12 @@ class Api:
     def open_news_hub(self):
         self._app.open_news_hub("")
 
+    def check_updates(self):
+        threading.Thread(target=self._app.check_updates, args=(True,), daemon=True).start()
+
+    def install_update(self):
+        threading.Thread(target=self._app.install_update, daemon=True).start()
+
     def minimize(self):
         self._app.window.minimize()
 
@@ -161,7 +168,9 @@ class JarvisApp:
         self._confirm = None
         self.toolbox = Toolbox(self.settings, self)
         self.brain = Brain(self.settings, self.toolbox, self.emit)
+        self.background = False  # --background: start hidden in the tray (used by "start with Windows")
         self.voice = Voice(self.settings, self.handle_command, self.emit)
+        self.voice.on_wake = self._on_wake
         if quiet:
             self.voice.speak = lambda text: None
         self.account = Account(self.settings)
@@ -328,6 +337,45 @@ class JarvisApp:
             user32.ShowWindow(hwnd, 4)  # SW_SHOWNOACTIVATE
             self._hidden_hwnd = None
 
+    # ------------------------------------------------------------ updates
+
+    def check_updates(self, manual=False):
+        try:
+            self.update_info = updater.check()
+        except Exception:  # noqa: BLE001 - offline / GitHub hiccup
+            log.warning("update check failed", exc_info=True)
+            if manual:
+                self.emit("notice", {"text": "Couldn't reach the update server."})
+            return
+        if self.update_info:
+            self.emit("update", self.update_info)
+        elif manual:
+            self.emit("notice", {"text": f"Jarvis v{APP_VERSION} is up to date."})
+
+    def _update_loop(self):
+        time.sleep(20)
+        while True:
+            self.check_updates()
+            time.sleep(6 * 3600)
+
+    def install_update(self):
+        info = getattr(self, "update_info", None)
+        if not info:
+            return
+        if not FROZEN:
+            self.emit("update_progress", {"error": "Updates install from the installed app. Running from source: use git pull."})
+            return
+        try:
+            path = updater.download(info, lambda done, total: self.emit(
+                "update_progress", {"pct": done * 100 // max(total, 1)}))
+            self.emit("update_progress", {"pct": 100, "installing": True})
+            updater.install(path)
+            time.sleep(1.5)
+            self.quit()
+        except Exception as e:  # noqa: BLE001
+            log.exception("update failed")
+            self.emit("update_progress", {"error": str(e)[:200]})
+
     # ------------------------------------------------------------ account
 
     def on_linked(self, user):
@@ -339,7 +387,7 @@ class JarvisApp:
     def save_settings(self, values):
         allowed = {"address_as", "model", "voice", "voice_rate", "voice_enabled", "wake_sensitivity",
                    "protected_apps", "ask_before_risky", "home_city", "start_with_windows", "whisper_model",
-                   "show_overlay"}
+                   "show_overlay", "clap_to_wake", "show_on_wake"}
         clean = {k: v for k, v in values.items() if k in allowed}
         if isinstance(clean.get("protected_apps"), str):
             clean["protected_apps"] = [p.strip() for p in clean["protected_apps"].split(",") if p.strip()]
@@ -381,6 +429,7 @@ class JarvisApp:
         threading.Thread(target=self._boot_voice, daemon=True).start()
         threading.Thread(target=self._stats_loop, daemon=True).start()
         threading.Thread(target=self._news_loop, daemon=True).start()
+        threading.Thread(target=self._update_loop, daemon=True).start()
         self._register_hotkey()
 
     def _boot_model(self):
@@ -437,8 +486,10 @@ class JarvisApp:
         part = "morning" if hour < 12 else "afternoon" if hour < 18 else "evening"
         name = self.account.user["name"] if self.account.user else self.settings["address_as"]
         if self.account.configured and not self.account.user:
+            if self.background:
+                self.show_window()  # can't work until linked, so don't hide in the tray
             self.announce(f"Good {part}. Please link your account to activate me.")
-        else:
+        elif not self.background:  # started with Windows: stay quiet in the tray
             self.announce(f"Good {part}, {name}. All systems are online.")
         if getattr(self, "autorun", None):
             threading.Thread(target=self.handle_command, args=(self.autorun, "text"), daemon=True).start()
@@ -474,6 +525,11 @@ class JarvisApp:
             self.window.show()
             self.window.restore()
 
+    def _on_wake(self):
+        """Woken by "Hey Jarvis", a double clap or the hotkey: bring the HUD up if it was hidden."""
+        if self.settings["show_on_wake"] and not self._hud_hwnd():
+            self.show_window()
+
     def hide_to_tray(self):
         if self.tray:
             self.window.hide()
@@ -490,11 +546,19 @@ class JarvisApp:
                 self.window.destroy()
             os._exit(0)
 
+    @staticmethod
+    def tray_possible() -> bool:
+        try:
+            import pystray  # noqa: F401
+            return True
+        except Exception:  # noqa: BLE001
+            return False
+
     def run(self):
         self.window = webview.create_window(
             WINDOW_TITLE, str(resource_path("ui/index.html")), js_api=Api(self),
             width=1240, height=780, min_size=(980, 640), frameless=True, easy_drag=False,
-            background_color="#03070d")
+            background_color="#03070d", hidden=self.background and self.tray_possible())
         self._start_tray()
         webview.start(self.boot, private_mode=False, storage_path=str(DATA_DIR / "webview"))
 
@@ -504,10 +568,10 @@ def set_autostart(enabled: bool):
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE) as key:
         if enabled:
             if FROZEN:
-                cmd = f'"{sys.executable}"'
+                cmd = f'"{sys.executable}" --background'
             else:
                 pyw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
-                cmd = f'"{pyw}" "{os.path.abspath(sys.argv[0])}"'
+                cmd = f'"{pyw}" "{os.path.abspath(sys.argv[0])}" --background'
             winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, cmd)
         else:
             try:

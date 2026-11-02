@@ -1,6 +1,9 @@
 ; Jarvis installer (Inno Setup 6.7+). Built by build.ps1 -> dist\Jarvis-Setup.exe
 #define AppName "J.A.R.V.I.S."
-#define AppVersion "0.1.0"
+; build.ps1 passes /DAppVersion from app/jarvis_core/config.py
+#ifndef AppVersion
+  #define AppVersion "0.1.0"
+#endif
 #define AppExe "Jarvis.exe"
 
 [Setup]
@@ -41,7 +44,7 @@ WelcomeLabel2=This will install Jarvis {#AppVersion}, your personal AI assistant
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"
-Name: "startup"; Description: "Start Jarvis when &Windows starts"; GroupDescription: "Startup:"; Flags: unchecked
+Name: "startup"; Description: "Run Jarvis in the background when &Windows starts (recommended)"; GroupDescription: "Startup:"
 
 [Files]
 Source: "..\app\dist\Jarvis\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
@@ -52,10 +55,12 @@ Name: "{group}\Uninstall Jarvis"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Jarvis"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Jarvis"; ValueData: """{app}\{#AppExe}"""; Flags: uninsdeletevalue; Tasks: startup
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Jarvis"; ValueData: """{app}\{#AppExe}"" --background"; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Launch Jarvis now"; Flags: nowait postinstall skipifsilent
+; Self-updates run silently: start Jarvis again afterwards.
+Filename: "{app}\{#AppExe}"; Flags: nowait; Check: WizardSilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"

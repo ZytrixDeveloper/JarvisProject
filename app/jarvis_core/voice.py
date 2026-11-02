@@ -60,6 +60,9 @@ class Voice:
         self._stop_speech = threading.Event()
         self._speak_lock = threading.Lock()
         self._answer_req = None
+        self.on_wake = None          # called when woken (wake word, clap, hotkey): e.g. show the HUD
+        self._claps = []             # timestamps of recent clap-like sound spikes
+        self._prev_level = 0.0
 
     # ------------------------------------------------------------ loading
 
@@ -163,8 +166,23 @@ class Voice:
             if scores and max(scores.values()) >= threshold:
                 self._wake.reset()
                 self._command()
+            elif self.settings["clap_to_wake"] and self._double_clap(level):
+                self._command()
             else:
                 self._noise = 0.97 * self._noise + 0.03 * min(level, 3000)
+
+    def _double_clap(self, level: float) -> bool:
+        """Two short, sharp sound spikes 0.15-0.9 s apart."""
+        now = time.time()
+        spike = level > max(self._noise * 10, 3500) and level > self._prev_level * 4
+        self._prev_level = level
+        if not spike:
+            return False
+        self._claps = [t for t in self._claps if now - t < 0.9] + [now]
+        if len(self._claps) >= 2 and now - self._claps[-2] > 0.15:
+            self._claps.clear()
+            return True
+        return False
 
     def _record(self, wait_s: float = 5, max_s: float = 14):
         """Record until the speaker pauses. None if nobody spoke."""
@@ -203,6 +221,8 @@ class Voice:
         self._busy.set()
         handed_off = False
         try:
+            if self.on_wake:
+                self.on_wake()
             self._chime()
             self.emit("state", {"state": "listening"})
             audio = self._record()

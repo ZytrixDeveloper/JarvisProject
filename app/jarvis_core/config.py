@@ -15,6 +15,7 @@ APP_VERSION = "0.1.0"
 SUPABASE_URL = "https://cgiqqbibzmmqoquvyzlh.supabase.co"
 SUPABASE_KEY = "sb_publishable_jX5Dk3I4xHFm2mPeeyWOJg_Ud83QuK9"
 WEBSITE_URL = "https://zytrixdeveloper.github.io/JarvisProject"
+GITHUB_REPO = "ZytrixDeveloper/JarvisProject"  # updates come from this repo's GitHub Releases
 
 DATA_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "Jarvis"
 MODELS_DIR = DATA_DIR / "models"
@@ -50,6 +51,8 @@ DEFAULTS = {
     "protected_apps": ["whatsapp"],
     "ask_before_risky": True,
     "show_overlay": True,
+    "clap_to_wake": True,
+    "show_on_wake": True,
     "home_city": "",
     "start_with_windows": False,
     "device_id": "",

@@ -25,6 +25,7 @@ def main():
     # --no-voice: no mic/speech.  --test: no mic/speech and no account lock (for development).
     test = "--test" in sys.argv
     app = JarvisApp(quiet=test or "--no-voice" in sys.argv, require_account=not test)
+    app.background = "--background" in sys.argv  # started with Windows: stay in the tray
     if "--say" in sys.argv[:-1]:  # run one command after startup, e.g. --say "system status"
         app.autorun = sys.argv[sys.argv.index("--say") + 1]
     app.run()

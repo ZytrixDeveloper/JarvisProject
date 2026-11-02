@@ -34,6 +34,7 @@ try {
 $iscc = @("$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe", "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe") |
     Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup not found. Install it with: winget install JRSoftware.InnoSetup" }
-& $iscc (Join-Path $root "installer\jarvis.iss")
+$version = (Select-String -Path (Join-Path $app "jarvis_core\config.py") -Pattern 'APP_VERSION = "([^"]+)"').Matches[0].Groups[1].Value
+& $iscc "/DAppVersion=$version" (Join-Path $root "installer\jarvis.iss")
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
 Write-Host "Done: $(Join-Path $root 'dist\Jarvis-Setup.exe')"
