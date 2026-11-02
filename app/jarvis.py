@@ -24,7 +24,10 @@ def main():
     from jarvis_core.app import JarvisApp
     # --no-voice: no mic/speech.  --test: no mic/speech and no account lock (for development).
     test = "--test" in sys.argv
-    JarvisApp(quiet=test or "--no-voice" in sys.argv, require_account=not test).run()
+    app = JarvisApp(quiet=test or "--no-voice" in sys.argv, require_account=not test)
+    if "--say" in sys.argv[:-1]:  # run one command after startup, e.g. --say "system status"
+        app.autorun = sys.argv[sys.argv.index("--say") + 1]
+    app.run()
 
 
 if __name__ == "__main__":

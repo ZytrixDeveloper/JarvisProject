@@ -111,8 +111,7 @@ class JarvisApp:
         if quiet:
             self.voice.speak = lambda text: None
         self.account = Account(self.settings)
-        if not require_account:
-            self.account.configured = False
+        self.account.enabled = require_account
 
     # ------------------------------------------------------------ events to the HUD
 
@@ -354,6 +353,8 @@ class JarvisApp:
             self.announce(f"Good {part}. Please link your account to activate me.")
         else:
             self.announce(f"Good {part}, {name}. All systems are online.")
+        if getattr(self, "autorun", None):
+            threading.Thread(target=self.handle_command, args=(self.autorun, "text"), daemon=True).start()
 
     def _register_hotkey(self):
         try:

@@ -51,10 +51,11 @@ class Account:
         self.settings = settings
         self.session = self._load()
         self._server = None
+        self.enabled = True  # False in --test mode: no account lock
 
     @property
     def configured(self) -> bool:
-        return bool(SUPABASE_URL and SUPABASE_KEY and WEBSITE_URL)
+        return self.enabled and bool(SUPABASE_URL and SUPABASE_KEY and WEBSITE_URL)
 
     @property
     def user(self):
