@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>J.A.R.V.I.S. News Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #02070c; --cyan: #29d3ff; --soft: #8be9ff; --text: #d6f2ff; --muted: #6d95aa; --line: rgba(41,211,255,.18); --line2: rgba(41,211,255,.45); }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 600 15px/1.35 "Rajdhani", "Segoe UI", sans-serif; overflow: hidden; user-select: none;
+  border: 1px solid var(--line2); box-shadow: inset 0 0 60px rgba(41,211,255,.12); }
+body::before { content: ""; position: fixed; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(41,211,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(41,211,255,.04) 1px, transparent 1px);
+  background-size: 32px 32px; animation: grid 30s linear infinite; }
+body::after { content: ""; position: fixed; left: 0; right: 0; height: 120px; pointer-events: none; top: -120px;
+  background: linear-gradient(180deg, transparent, rgba(41,211,255,.06), transparent); animation: sweep 6s linear infinite; }
+header { position: relative; display: flex; align-items: center; gap: 14px; height: 54px; padding: 0 10px 0 18px; border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(8,26,40,.95), rgba(2,7,12,.6)); animation: drop .5s ease both; }
+.title { font: 800 14px "Orbitron"; letter-spacing: .32em; color: var(--cyan); text-shadow: 0 0 14px rgba(41,211,255,.7); }
+.live { display: flex; align-items: center; gap: 7px; font: 600 11px "Orbitron"; letter-spacing: .2em; color: #ff6b7a; }
+.live i { width: 8px; height: 8px; border-radius: 50%; background: #ff4d5e; box-shadow: 0 0 10px #ff4d5e; animation: blink 1.2s infinite; }
+.spacer { flex: 1; align-self: stretch; }
+.search { display: flex; align-items: center; border: 1px solid var(--line2); border-radius: 99px; padding: 0 12px; background: rgba(41,211,255,.05); }
+.search input { background: none; border: 0; outline: 0; color: var(--text); font: inherit; width: 190px; padding: 7px 4px; user-select: text; }
+.search input::placeholder { color: var(--muted); }
+.wbtn { width: 38px; height: 34px; border: 0; background: none; color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 16px; }
+.wbtn:hover { background: rgba(41,211,255,.12); color: var(--cyan); }
+.wbtn.x:hover { background: rgba(255,77,94,.2); color: #ff6b7a; }
+nav { display: flex; gap: 8px; padding: 12px 18px; overflow-x: auto; animation: fade .6s ease .15s both; }
+nav button { flex: 0 0 auto; padding: 7px 16px; border-radius: 99px; border: 1px solid var(--line); background: rgba(41,211,255,.04); color: var(--muted);
+  font: 700 12px "Orbitron"; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; transition: .25s; }
+nav button:hover { color: var(--text); border-color: var(--line2); }
+nav button.on { color: #00131d; background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 22px rgba(41,211,255,.55); }
+main { height: calc(100% - 54px - 58px - 42px); overflow-y: auto; padding: 4px 18px 18px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.card { position: relative; padding: 16px 16px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(7,22,34,.75);
+  cursor: pointer; transition: transform .25s, border-color .25s, box-shadow .25s; animation: card .5s cubic-bezier(.2,.8,.2,1) both; overflow: hidden; }
+.card::before { content: ""; position: absolute; top: -1px; left: 16px; width: 46px; height: 2px; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+.card::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 40%, rgba(41,211,255,.1) 50%, transparent 60%);
+  background-size: 250% 100%; background-position: 150% 0; transition: background-position .8s; pointer-events: none; }
+.card:hover { transform: translateY(-4px); border-color: var(--line2); box-shadow: 0 0 30px rgba(41,211,255,.22), inset 0 0 20px rgba(41,211,255,.06); }
+.card:hover::after { background-position: -50% 0; }
+.card.featured { grid-column: span 2; padding: 22px; background: linear-gradient(135deg, rgba(10,40,60,.9), rgba(7,22,34,.8)); }
+.card.featured h2 { font-size: 26px; }
+.src { display: flex; align-items: center; gap: 8px; color: var(--soft); font-size: 13px; letter-spacing: .04em; margin-bottom: 10px; }
+.src img { width: 16px; height: 16px; border-radius: 4px; background: #fff2; }
+.src time { margin-left: auto; color: var(--muted); }
+h2 { margin: 0; font-size: 17px; line-height: 1.3; font-weight: 700; color: var(--text); }
+.n { position: absolute; right: 14px; bottom: 8px; font: 800 30px "Orbitron"; color: rgba(41,211,255,.08); }
+.state { text-align: center; color: var(--muted); padding: 60px 0; font-size: 16px; }
+.spin { width: 34px; height: 34px; margin: 0 auto 14px; border-radius: 50%; border: 3px solid rgba(41,211,255,.2); border-top-color: var(--cyan); animation: spinr .8s linear infinite; }
+footer { position: absolute; left: 0; right: 0; bottom: 0; height: 42px; display: flex; align-items: center; border-top: 1px solid var(--line); background: rgba(3,12,20,.95); overflow: hidden; }
+footer b { flex: 0 0 auto; padding: 0 16px; height: 100%; display: grid; place-items: center; font: 800 11px "Orbitron"; letter-spacing: .2em; color: #00131d; background: var(--cyan); box-shadow: 0 0 20px var(--cyan); }
+.ticker { white-space: nowrap; display: inline-block; padding-left: 100%; animation: tick 60s linear infinite; color: var(--soft); }
+.ticker span { margin-right: 60px; }
+.ticker span::before { content: "\25C6  "; color: var(--cyan); }
+::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: rgba(41,211,255,.25); border-radius: 6px; }
+@keyframes grid { to { background-position: 0 320px, 320px 0; } }
+@keyframes sweep { to { top: 100%; } }
+@keyframes blink { 50% { opacity: .3; } }
+@keyframes drop { from { opacity: 0; transform: translateY(-100%); } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes card { from { opacity: 0; transform: translateY(16px) scale(.97); filter: blur(4px); } }
+@keyframes spinr { to { transform: rotate(360deg); } }
+@keyframes tick { to { transform: translateX(-100%); } }
+@media (max-width: 640px) { .card.featured { grid-column: auto; } }
+</style>
+</head>
+<body>
+<header class="pywebview-drag-region">
+  <span class="title pywebview-drag-region">NEWS HUB</span>
+  <span class="live"><i></i>LIVE</span>
+  <div class="spacer pywebview-drag-region"></div>
+  <form class="search" id="searchForm"><input id="q" placeholder="Search any topic..."></form>
+  <button class="wbtn" id="refresh" title="Refresh">&#x21bb;</button>
+  <button class="wbtn x" id="close" title="Close">&#x2715;</button>
+</header>
+<nav id="tabs"></nav>
+<main><div class="grid" id="grid"></div></main>
+<footer><b>BREAKING</b><div class="ticker" id="ticker"></div></footer>
+<script>
+const TABS = [["", "Top stories"], ["world", "World"], ["technology", "Tech"], ["video games", "Gaming"],
+  ["sports", "Sports"], ["business", "Business"], ["science", "Science"], ["entertainment", "Entertainment"]];
+let api = null, topic = "";
+const $ = (id) => document.getElementById(id);
+
+function favicon(domain) { return domain ? `https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(domain)}` : ""; }
+
+function render(items) {
+  const grid = $("grid");
+  grid.innerHTML = "";
+  if (!items.length) { grid.innerHTML = '<div class="state">No news found for this topic.</div>'; return; }
+  items.forEach((n, i) => {
+    const card = document.createElement("article");
+    card.className = "card" + (i === 0 ? " featured" : "");
+    card.style.animationDelay = `${i * 45}ms`;
+    const src = document.createElement("div");
+    src.className = "src";
+    if (n.domain) { const img = new Image(); img.src = favicon(n.domain); img.alt = ""; src.append(img); }
+    src.append(document.createTextNode(n.source));
+    const t = document.createElement("time"); t.textContent = n.age; src.append(t);
+    const h = document.createElement("h2"); h.textContent = n.title;
+    const num = document.createElement("span"); num.className = "n"; num.textContent = String(i + 1).padStart(2, "0");
+    card.append(src, h, num);
+    card.addEventListener("click", () => api.open_url(n.url));
+    grid.append(card);
+  });
+  const ticker = $("ticker");
+  ticker.innerHTML = "";
+  for (const n of items.slice(0, 10)) { const s = document.createElement("span"); s.textContent = n.title; ticker.append(s); }
+}
+
+async function load(t) {
+  topic = t || "";
+  [...$("tabs").children].forEach((b) => b.classList.toggle("on", b.dataset.t === topic));
+  $("grid").innerHTML = '<div class="state"><div class="spin"></div>Scanning news networks...</div>';
+  try { render(await api.load(topic)); } catch (e) { $("grid").innerHTML = '<div class="state">Couldn\'t reach the news networks.</div>'; }
+}
+
+window.newsHub = { show: (t) => load(t) };
+
+for (const [t, label] of TABS) {
+  const b = document.createElement("button");
+  b.dataset.t = t; b.textContent = label;
+  b.addEventListener("click", () => load(t));
+  $("tabs").append(b);
+}
+$("searchForm").addEventListener("submit", (e) => { e.preventDefault(); const q = $("q").value.trim(); if (q) load(q); });
+$("refresh").addEventListener("click", () => load(topic));
+$("close").addEventListener("click", () => api.close());
+
+async function init() { api = window.pywebview.api; load(await api.initial_topic()); }
+if (window.pywebview?.api) init(); else window.addEventListener("pywebviewready", init);
+</script>
+</body>
+</html>

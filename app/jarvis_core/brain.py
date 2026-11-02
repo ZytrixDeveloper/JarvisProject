@@ -24,7 +24,11 @@ How you work:
 - Risky actions ask the user to confirm automatically. If the user cancels, accept it politely.
 - If a tool fails, briefly say what went wrong.
 - These apps are protected and must never be closed: {protected}.
-- For normal conversation just answer, no tools needed."""
+- When the user tells you something personal worth keeping (name, likes, birthday, plans), save it with remember.
+- For normal conversation just answer, no tools needed.
+
+What you remember about the user:
+{memory}"""
 
 MAX_HISTORY = 24
 MAX_TOOL_ROUNDS = 6
@@ -95,9 +99,11 @@ class Brain:
         return self.client.chat(**kwargs)
 
     def _system(self) -> dict:
+        facts = self.toolbox.memory_facts()
         return {"role": "system", "content": SYSTEM_PROMPT.format(
             address=self.settings["address_as"], now=dt.datetime.now(),
-            protected=", ".join(self.settings["protected_apps"]) or "none")}
+            protected=", ".join(self.settings["protected_apps"]) or "none",
+            memory="\n".join(f"- {f}" for f in facts) or "(nothing yet)")}
 
     def _trim(self):
         self.history = self.history[-MAX_HISTORY:]

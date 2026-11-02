@@ -37,6 +37,7 @@
     <section class="card clock-card">
       <div class="clock" id="clock">--:--</div>
       <div class="date" id="date"></div>
+      <div class="weather" id="weather"></div>
     </section>
 
     <section class="card">
@@ -85,7 +86,8 @@
       <button>What's the weather today?</button>
       <button>Play lo-fi music on YouTube</button>
       <button>System status report</button>
-      <button>What's in the news?</button>
+      <button>Show me the tech news</button>
+      <button>Remind me at 20:00 to stretch</button>
     </div>
   </section>
 
@@ -95,7 +97,7 @@
       <ul class="activity" id="activity"><li class="empty">No actions yet</li></ul>
     </section>
     <section class="card news-card">
-      <h3>Live news <button class="mini" id="btnNews" title="Refresh">refresh</button></h3>
+      <h3>Live news <span><button class="mini" id="btnNews" title="Refresh">refresh</button> <button class="mini glow" id="btnHub" title="Open the News Hub">hub</button></span></h3>
       <ul class="news" id="news"><li class="empty">Loading headlines...</li></ul>
     </section>
     <section class="card">
@@ -143,6 +145,7 @@
     <label>Home city (for weather)<input name="home_city" placeholder="e.g. Bratislava"></label>
     <label>Protected apps (never closed)<input name="protected_apps" placeholder="whatsapp, discord"></label>
     <label class="toggle"><input type="checkbox" name="ask_before_risky"><span>Ask before risky actions</span></label>
+    <label class="toggle"><input type="checkbox" name="show_overlay"><span>Glowing screen overlay while Jarvis works</span></label>
     <label class="toggle"><input type="checkbox" name="start_with_windows"><span>Start with Windows</span></label>
     <details>
       <summary>Advanced</summary>

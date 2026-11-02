@@ -110,6 +110,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .clock-card { text-align: center; padding: 18px; }
 .clock { font: 700 40px var(--font-hud); letter-spacing: .08em; color: var(--cyan); text-shadow: 0 0 18px rgba(41, 211, 255, .55); }
 .date { color: var(--muted); letter-spacing: .18em; text-transform: uppercase; font-size: 12px; margin-top: 4px; }
+.weather { margin-top: 8px; color: var(--cyan-soft); font-size: 13px; line-height: 1.3; min-height: 17px; }
+.mini.glow { color: var(--cyan); border-color: var(--line-2); box-shadow: 0 0 10px rgba(41, 211, 255, .25); }
+.mini.glow:hover { background: var(--cyan); color: #00131d; }
 
 .gauges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .gauge { position: relative; text-align: center; }

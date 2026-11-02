@@ -20,6 +20,7 @@ DATA_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "Jarvis"
 MODELS_DIR = DATA_DIR / "models"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 SESSION_FILE = DATA_DIR / "session.bin"
+MEMORY_FILE = DATA_DIR / "memory.json"
 LOG_FILE = DATA_DIR / "jarvis.log"
 SCREENSHOT_DIR = Path.home() / "Pictures" / "Jarvis"
 
@@ -48,6 +49,7 @@ DEFAULTS = {
     "hotkey": "ctrl+alt+j",
     "protected_apps": ["whatsapp"],
     "ask_before_risky": True,
+    "show_overlay": True,
     "home_city": "",
     "start_with_windows": False,
     "device_id": "",

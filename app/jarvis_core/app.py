@@ -18,12 +18,60 @@ from . import tools as tools_mod
 from .account import Account
 from .brain import Brain
 from .config import APP_NAME, APP_VERSION, DATA_DIR, FROZEN, Settings, resource_path
+from .overlay import Overlay
 from .tools import Toolbox
 from .voice import VOICES, Voice
 
 log = logging.getLogger("jarvis.app")
 user32 = ctypes.windll.user32
 WINDOW_TITLE = "J.A.R.V.I.S."
+
+# What the glowing screen overlay says while a tool runs.
+TOOL_CAPTIONS = {
+    "open_app": "Opening {name}", "close_app": "Closing {name}", "list_open_windows": "Scanning open windows",
+    "open_website": "Opening {url}", "google_search": "Searching Google: {query}",
+    "search_web": "Searching the web: {query}", "play_youtube": "Playing {query} on YouTube",
+    "get_news": "Opening the News Hub", "read_clipboard": "Reading your clipboard",
+    "system_status": "Running diagnostics", "get_weather": "Checking the weather", "volume": "Adjusting volume",
+    "media_control": "Controlling media playback", "set_brightness": "Adjusting brightness",
+    "power": "Power control: {action}", "set_timer": "Setting a timer", "set_reminder": "Setting a reminder",
+    "remember": "Saving to memory", "forget": "Updating memory", "type_text": "Typing for you",
+    "press_keys": "Pressing {keys}", "find_files": "Searching your files: {name}", "open_path": "Opening {path}",
+    "read_file": "Reading {path}", "write_file": "Writing {path}", "create_folder": "Creating folder {path}",
+    "move_file": "Moving {source}", "delete_file": "Moving {path} to the Recycle Bin",
+    "run_command": "Running a command", "look_at_screen": "Analysing your screen",
+    "look_through_camera": "Scanning through the camera", "take_screenshot": "Taking a screenshot",
+}
+
+
+def tool_caption(name, args) -> str:
+    template = TOOL_CAPTIONS.get(name, "Working")
+    try:
+        text = template.format(**{k: str(v)[:40] for k, v in (args or {}).items()})
+    except (KeyError, IndexError):
+        text = template.split(" {")[0].split(":")[0]
+    return f"JARVIS  ·  {text}"
+
+
+class NewsApi:
+    """Functions the News Hub window's JavaScript can call."""
+
+    def __init__(self, app):
+        self._app = app
+
+    def initial_topic(self):
+        return self._app.news_topic
+
+    def load(self, topic=""):
+        return tools_mod.fetch_news(topic or "", 18)
+
+    def open_url(self, url):
+        if isinstance(url, str) and url.startswith(("https://", "http://")):
+            import webbrowser
+            webbrowser.open(url)
+
+    def close(self):
+        self._app.close_news_hub()
 
 
 class Api:
@@ -80,6 +128,9 @@ class Api:
     def refresh_news(self, topic=""):
         threading.Thread(target=self._app.load_news, args=(topic or "",), daemon=True).start()
 
+    def open_news_hub(self):
+        self._app.open_news_hub("")
+
     def minimize(self):
         self._app.window.minimize()
 
@@ -100,7 +151,10 @@ class JarvisApp:
         self.quiet = quiet  # --no-voice: no microphone, no speaking (for testing)
         self.settings = Settings()
         self.window = None
+        self.news_window = None
+        self.news_topic = ""
         self.tray = None
+        self.overlay = Overlay()
         self._events = queue.Queue()
         self.ui_ready = threading.Event()
         self._busy = threading.Lock()
@@ -116,6 +170,8 @@ class JarvisApp:
     # ------------------------------------------------------------ events to the HUD
 
     def emit(self, kind, data=None):
+        if kind == "tool" and data and data.get("state") == "run" and self.settings["show_overlay"]:
+            self.overlay.show(tool_caption(data["name"], data.get("args")))
         self._events.put({"type": kind, **(data or {})})
 
     def _pump(self):
@@ -137,7 +193,7 @@ class JarvisApp:
     def load_news(self, topic=""):
         items = tools_mod.fetch_news(topic, 8)
         if items:
-            self.show_news(topic, items)
+            self.show_news(topic, items, open_hub=False)
 
     def _news_loop(self):
         while True:
@@ -145,6 +201,10 @@ class JarvisApp:
                 self.load_news()
             except Exception:  # noqa: BLE001 - offline etc., try again later
                 log.warning("news refresh failed", exc_info=True)
+            try:
+                self.emit("weather", {"text": self.toolbox.get_weather("")})
+            except Exception:  # noqa: BLE001
+                log.warning("weather refresh failed", exc_info=True)
             time.sleep(15 * 60)
 
     # ------------------------------------------------------------ the main command path
@@ -169,6 +229,7 @@ class JarvisApp:
             log.exception("command failed")
             self.emit("reply", {"text": "Something went wrong on my side. The details are in the log."})
         finally:
+            self.overlay.hide()
             self.emit("state", {"state": "idle"})
             self.voice.busy(False)
             self._busy.release()
@@ -183,6 +244,8 @@ class JarvisApp:
         self._confirm = (cid, done, result)
         self.emit("confirm", {"id": cid, "text": question, "timeout": 25})
         self.emit("state", {"state": "confirm"})
+        if self.settings["show_overlay"]:
+            self.overlay.show("JARVIS  ·  Waiting for your confirmation")
         self.voice.speak(f"{question.splitlines()[0]} Shall I proceed, {self.settings['address_as']}?")
 
         def by_voice():
@@ -207,8 +270,31 @@ class JarvisApp:
         self.emit("reply", {"text": text, "announce": True})
         threading.Thread(target=self.voice.speak, args=(text,), daemon=True).start()
 
-    def show_news(self, topic, items):
+    def show_news(self, topic, items, open_hub=True):
         self.emit("news", {"topic": topic, "items": items})
+        if open_hub:
+            self.open_news_hub(topic)
+
+    def open_news_hub(self, topic=""):
+        self.news_topic = topic
+        if self.news_window is not None:
+            try:
+                self.news_window.show()
+                self.news_window.restore()
+                self.news_window.evaluate_js(f"window.newsHub && newsHub.show({json.dumps(topic)})")
+                return
+            except Exception:  # noqa: BLE001 - window was closed behind our back
+                self.news_window = None
+        self.news_window = webview.create_window(
+            "J.A.R.V.I.S. News Hub", str(resource_path("ui/news.html")), js_api=NewsApi(self),
+            width=1040, height=700, min_size=(620, 480), frameless=True, easy_drag=False,
+            background_color="#02070c")
+        self.news_window.events.closed += lambda: setattr(self, "news_window", None)
+
+    def close_news_hub(self):
+        if self.news_window is not None:
+            window, self.news_window = self.news_window, None
+            window.destroy()
 
     def capture(self, kind, jpeg):
         self.emit("capture", {"kind": kind, "img": base64.b64encode(jpeg).decode()})
@@ -252,7 +338,8 @@ class JarvisApp:
 
     def save_settings(self, values):
         allowed = {"address_as", "model", "voice", "voice_rate", "voice_enabled", "wake_sensitivity",
-                   "protected_apps", "ask_before_risky", "home_city", "start_with_windows", "whisper_model"}
+                   "protected_apps", "ask_before_risky", "home_city", "start_with_windows", "whisper_model",
+                   "show_overlay"}
         clean = {k: v for k, v in values.items() if k in allowed}
         if isinstance(clean.get("protected_apps"), str):
             clean["protected_apps"] = [p.strip() for p in clean["protected_apps"].split(",") if p.strip()]

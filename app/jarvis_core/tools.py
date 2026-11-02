@@ -27,7 +27,7 @@ from pathlib import Path
 import psutil
 import requests
 
-from .config import SCREENSHOT_DIR
+from .config import MEMORY_FILE, SCREENSHOT_DIR
 
 log = logging.getLogger("jarvis.tools")
 
@@ -464,7 +464,7 @@ class Toolbox:
 
     @tool()
     def get_news(self, topic: str = "", count: int = 5) -> str:
-        """Get the latest news headlines, optionally about a topic. Also shows them in the HUD news panel.
+        """Get the latest news headlines (optionally about a topic) and open the holographic News Hub window.
 
         Args:
             topic: e.g. "technology", "football", "Slovakia"; empty for top world news
@@ -475,6 +475,67 @@ class Toolbox:
             raise ToolError("I couldn't get any news right now.")
         self.ctx.show_news(topic, items)
         return "\n".join(f"- {n['title']} ({n['source']}, {n['age']})" for n in items)
+
+    # ------------------------------------------------------------ memory & reminders
+
+    def memory_facts(self) -> list[str]:
+        try:
+            return json.loads(MEMORY_FILE.read_text("utf-8"))
+        except (OSError, ValueError):
+            return []
+
+    def _save_memory(self, facts: list[str]):
+        MEMORY_FILE.write_text(json.dumps(facts[-60:], indent=1, ensure_ascii=False), "utf-8")
+
+    @tool()
+    def remember(self, fact: str) -> str:
+        """Save a fact about the user to long-term memory (name, likes, birthday, friends, habits...).
+        Use it whenever the user tells you something personal worth keeping.
+
+        Args:
+            fact: one short sentence, e.g. "Favourite game is Roblox"
+        """
+        facts = [f for f in self.memory_facts() if f.lower() != fact.lower()]
+        self._save_memory(facts + [fact.strip()])
+        return f"Remembered: {fact}"
+
+    @tool()
+    def forget(self, about: str) -> str:
+        """Delete remembered facts that mention a keyword.
+
+        Args:
+            about: keyword, e.g. "birthday"
+        """
+        facts = self.memory_facts()
+        keep = [f for f in facts if about.lower() not in f.lower()]
+        self._save_memory(keep)
+        return f"Forgot {len(facts) - len(keep)} fact(s) about {about}."
+
+    @tool()
+    def set_reminder(self, time: str, message: str) -> str:
+        """Remind the user at a clock time (today, or tomorrow if that time has passed).
+
+        Args:
+            time: e.g. "18:30", "6pm", "7:15 am"
+            message: what to remind about
+        """
+        m = re.match(r"^\s*(\d{1,2})(?::(\d{2}))?\s*([ap]\.?m\.?)?\s*$", time.lower())
+        if not m:
+            raise ToolError(f"I couldn't understand the time '{time}'. Use something like 18:30.")
+        hour, minute, ampm = int(m.group(1)), int(m.group(2) or 0), m.group(3)
+        if ampm:
+            hour = hour % 12 + (12 if ampm.startswith("p") else 0)
+        if hour > 23 or minute > 59:
+            raise ToolError(f"'{time}' isn't a valid time.")
+        now = dt.datetime.now()
+        when = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if when <= now:
+            when += dt.timedelta(days=1)
+        t = threading.Timer((when - now).total_seconds(), lambda: self.ctx.announce(
+            f"{self.settings['address_as'].capitalize()}, a reminder: {message}"))
+        t.daemon = True
+        t.start()
+        return f"Reminder set for {when:%H:%M}{' tomorrow' if when.date() > now.date() else ''}: {message}"
 
     @tool()
     def read_clipboard(self) -> str:
@@ -932,10 +993,13 @@ def fetch_news(topic: str = "", count: int = 8) -> list[dict]:
         items = []
         for item in root.iter("item"):
             title = (item.findtext("title") or "").strip()
-            source = (item.findtext("source") or "").strip()
+            src_el = item.find("source")
+            source = (src_el.text or "").strip() if src_el is not None else ""
             if source and title.endswith(f" - {source}"):
                 title = title[: -len(source) - 3]
+            src_url = src_el.get("url", "") if src_el is not None else "https://www.bbc.co.uk"
             items.append({"title": title, "source": source or "BBC News",
+                          "domain": urllib.parse.urlparse(src_url).netloc,
                           "url": item.findtext("link") or "", "age": _age(item.findtext("pubDate") or "")})
             if len(items) >= count:
                 break

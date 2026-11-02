@@ -18,7 +18,8 @@
     open_path: "Open", read_file: "Read file", write_file: "Write file", create_folder: "New folder",
     move_file: "Move", delete_file: "Delete", run_command: "Command",
     look_at_screen: "Screen scan", look_through_camera: "Camera scan", take_screenshot: "Screenshot",
-    get_news: "News", read_clipboard: "Clipboard",
+    get_news: "News Hub", read_clipboard: "Clipboard", remember: "Memory", forget: "Memory",
+    set_reminder: "Reminder",
   };
 
   /* ------------------------------------------------------------------ reactor animation */
@@ -279,6 +280,11 @@
       $("disk").textContent = `${s.disk}% used`;
       $("uptime").textContent = s.uptime;
     },
+    weather({ text }) {
+      const short = text.replace(/\. Today.*$/, "").replace(/, humidity.*$/, "");
+      $("weather").textContent = short;
+      $("weather").title = text;
+    },
     news({ topic, items }) {
       const list = $("news");
       list.innerHTML = "";
@@ -368,6 +374,7 @@
     $("btnCloseSettings").addEventListener("click", () => openSettings(false));
     $("btnClearLog").addEventListener("click", () => { $("activity").innerHTML = '<li class="empty">No actions yet</li>'; });
     $("btnNews").addEventListener("click", () => api?.refresh_news(""));
+    $("btnHub").addEventListener("click", () => api?.open_news_hub());
     $("btnNewChat").addEventListener("click", () => { api?.new_conversation(); toast("Started a new conversation"); });
     $("btnDataFolder").addEventListener("click", () => api?.open_data_folder());
     $("btnSignOut").addEventListener("click", () => { api?.sign_out(); openSettings(false); });
