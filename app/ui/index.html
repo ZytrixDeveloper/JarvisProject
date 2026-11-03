@@ -20,6 +20,7 @@
     <span class="brand-ver" id="ver"></span>
   </div>
   <div class="status-chip" id="statusChip"><i></i><span id="statusText">BOOTING</span></div>
+  <div class="call-chip" id="callChip" hidden><i></i><span id="callText"></span></div>
   <div class="spacer pywebview-drag-region"></div>
   <button class="user-chip update-chip" id="updateChip" hidden title="Update available">Update ready</button>
   <button class="user-chip" id="userChip" hidden title="Account"></button>
@@ -54,6 +55,20 @@
         <div><dt>Disk C:</dt><dd id="disk">--</dd></div>
         <div><dt>Uptime</dt><dd id="uptime">--</dd></div>
       </dl>
+    </section>
+
+    <section class="card np-card" id="npCard">
+      <h3>Now playing <span class="np-app" id="npApp"></span></h3>
+      <div class="np" id="np">
+        <div class="np-art" id="npArt"></div>
+        <div class="np-meta"><b id="npTitle">Nothing playing</b><span id="npArtist">Play music in Spotify, YouTube...</span></div>
+      </div>
+      <div class="np-bar"><i id="npBar"></i></div>
+      <div class="np-ctl">
+        <button data-media="previous" title="Previous"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 6l-9 6 9 6Z"/></svg></button>
+        <button data-media="play_pause" class="np-play" title="Play / pause"><svg viewBox="0 0 24 24" id="npIcon"><path d="m8 5 11 7-11 7Z"/></svg></button>
+        <button data-media="next" title="Next"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6Z"/></svg></button>
+      </div>
     </section>
 
     <section class="card grow">
@@ -182,6 +197,7 @@
     <label class="toggle"><input type="checkbox" name="show_overlay"><span>Glowing screen overlay while Jarvis works</span></label>
     <label class="toggle"><input type="checkbox" name="show_orb"><span>Floating orb when Jarvis is hidden</span></label>
     <label class="toggle"><input type="checkbox" name="game_mode"><span>Game mode: stay invisible over games and fullscreen apps</span></label>
+    <label class="toggle"><input type="checkbox" name="quiet_in_calls"><span>Reply silently while I'm in a call</span></label>
     <label class="toggle"><input type="checkbox" name="clap_to_wake"><span>Clap twice to wake Jarvis</span></label>
     <label class="toggle"><input type="checkbox" name="show_on_wake"><span>Pop up Jarvis when woken</span></label>
     <label class="toggle"><input type="checkbox" name="start_with_windows"><span>Start with Windows</span></label>

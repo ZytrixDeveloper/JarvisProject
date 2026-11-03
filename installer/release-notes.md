@@ -1,28 +1,20 @@
-## J.A.R.V.I.S. v0.2.0
+## J.A.R.V.I.S. v0.2.1
 
-Big update. Installed Jarvis offers it automatically: click **Update Jarvis**.
-
-### New
-- **Faster replies**: Jarvis starts talking after the first sentence while the rest is still being written, and loads the AI the moment you say "Hey Jarvis".
-- **Speaks your language**: talk in Slovak, Czech, German, Polish and 20+ more languages and Jarvis answers in that language with a native voice. Knows your city and time zone.
-- **Floating orb**: a spinning arc reactor floats on your screen while Jarvis is hidden. Drag it anywhere, double-click to open Jarvis, right-click to talk. It glides to the screen you're using while Jarvis works.
-- **Screen glow on every monitor** while Jarvis is doing something.
-- **Game mode**: over games and fullscreen apps Jarvis stays invisible (no orb, no glow, no pop-ups, no clap wake-ups) but still answers by voice.
-- **Live TV** in the News Hub: Sky News, Al Jazeera, DW, France 24, Bloomberg, NBC, ABC, CNA, Euronews, TRT World, WION, Reuters.
-- **3D Lab**: "design me a racing drone" builds a 3D model with a build plan. Move, rotate, resize, recolour, explode and save the parts.
-- **Code builder**: "build me a website for my football club" writes a complete project in Documents\Jarvis Projects and opens it.
-- **Camera picker + live camera view**; scans use the camera you choose.
-- **Administrator commands** when needed (Windows always asks first).
-- **Uninstall from Settings**: removes Jarvis, its settings, memory, speech models and (optionally) the AI models.
+Fixes the update problem from v0.2.0 and adds Now Playing and call detection.
+Installed Jarvis offers it automatically: click **Update Jarvis**.
 
 ### Fixed
-- Jarvis opens fullscreen without the gap on the left; double-click the title bar to switch to a window.
-- Opening Jarvis again brings the running one to the front instead of an error.
-- Asking to open an app that's already open switches to it instead of opening another copy.
-- The HUD never shows an outdated copy of itself after an update.
-- Compact layout for laptops and small or zoomed screens.
+- **Updates no longer break Jarvis.** Antivirus programs (Avast, 360, ...) lock every brand-new EXE for a few seconds while they scan it; the installer used to give up after 4 seconds, leaving Jarvis without `Jarvis.exe`. It now closes any running Jarvis first and waits up to 90 seconds, and explains clearly if an antivirus really blocks it.
+- Jarvis always shuts down completely before an update (no locked files).
+- The HUD is live immediately at start-up (stats, news, music) while the AI model is still loading.
+- Uninstall now defaults to keeping the AI models, so reinstalling doesn't mean a 3 GB download.
+
+### New
+- **Now Playing**: song, artist, album art, progress and controls for Spotify, YouTube in any browser, Apple Music, VLC and more. Ask "what song is this?".
+- **Call detection**: a red "IN CALL" badge when you're in a WhatsApp, Discord, Teams, Zoom, Meet or Telegram call. While you're in a call Jarvis replies on screen instead of talking into your call. Ask "am I in a call?". Jarvis never listens to or records calls.
+- Jarvis.exe and the installer now carry publisher and version details.
 
 ### Install
 1. Install [Ollama](https://ollama.com/download) (free, runs the AI on your PC).
-2. Run **Jarvis-Setup.exe** below. Windows SmartScreen may warn because the app isn't code-signed yet: **More info → Run anyway**.
+2. Run **Jarvis-Setup.exe** below. Windows SmartScreen may say "unrecognised app" because Jarvis isn't code-signed yet: **More info → Run anyway**.
 3. Open Jarvis and click **Sign in with browser**.

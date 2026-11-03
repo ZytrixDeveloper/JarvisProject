@@ -17,6 +17,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg);
@@ -325,6 +326,28 @@ button.danger { color: var(--red); border-color: rgba(255, 77, 94, .4) !importan
 @media (max-width: 1150px) {
   .layout { grid-template-columns: 240px 1fr 270px; }
 }
+
+/* ---------- now playing + calls */
+.np { display: grid; grid-template-columns: 58px 1fr; gap: 12px; align-items: center; }
+.np-art { width: 58px; height: 58px; border-radius: 10px; background: rgba(41, 211, 255, .08) center / cover no-repeat;
+  border: 1px solid var(--line-2); box-shadow: 0 0 18px rgba(41, 211, 255, .2); }
+.np-card.playing .np-art { animation: art-glow 2.4s ease-in-out infinite; }
+.np-meta { min-width: 0; }
+.np-meta b { display: block; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-meta span { display: block; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-app { color: var(--cyan); font: 600 11px var(--font); letter-spacing: .08em; text-transform: none; }
+.np-bar { height: 3px; margin: 12px 0 8px; border-radius: 3px; background: rgba(41, 211, 255, .15); overflow: hidden; }
+.np-bar i { display: block; height: 100%; width: 0; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.np-ctl { display: flex; justify-content: center; gap: 14px; }
+.np-ctl button { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line);
+  background: none; color: var(--muted); }
+.np-ctl button:hover { color: var(--cyan); border-color: var(--line-2); }
+.np-ctl .np-play { color: var(--cyan); border-color: var(--line-2); }
+.np-ctl svg { width: 15px; height: 15px; fill: currentColor; }
+.call-chip { display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 99px;
+  border: 1px solid rgba(255, 77, 94, .55); color: #ff8a95; font: 600 11px var(--font-hud); letter-spacing: .14em; }
+.call-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--red); box-shadow: 0 0 8px var(--red); animation: blink 1.2s infinite; }
+@keyframes art-glow { 50% { box-shadow: 0 0 28px rgba(41, 211, 255, .55); } }
 
 /* ---------- big monitors (1440p, 4K) */
 @media (min-width: 1800px) and (min-height: 980px) {

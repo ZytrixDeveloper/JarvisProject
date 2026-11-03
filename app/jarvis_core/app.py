@@ -15,7 +15,8 @@ import winreg
 import webview
 
 from . import tools as tools_mod
-from . import updater
+from . import live, updater
+from .live import MediaWatcher
 from .account import Account
 from .brain import Brain, SentenceSplitter
 from .config import APP_NAME, APP_VERSION, DATA_DIR, FROZEN, Settings, resource_path
@@ -45,6 +46,7 @@ TOOL_CAPTIONS = {
     "run_command": "Running a command", "look_at_screen": "Analysing your screen",
     "look_through_camera": "Scanning through the camera", "take_screenshot": "Taking a screenshot",
     "design_3d": "Designing {project} in the 3D Lab", "build_project": "Building {request}",
+    "now_playing": "Checking what's playing", "call_status": "Checking your calls",
 }
 
 
@@ -170,6 +172,10 @@ class Api:
     def list_cameras(self):
         return tools_mod.list_cameras()
 
+    def media(self, action):
+        if action in ("play_pause", "next", "previous"):
+            threading.Thread(target=self._app.media_control, args=(action,), daemon=True).start()
+
     def camera_live(self, on):
         cam = self._app.toolbox.camera
         cam.start() if on else cam.stop()
@@ -223,6 +229,26 @@ class JarvisApp:
                                hud_visible=self.hud_shown)
         self.account = Account(self.settings)
         self.account.enabled = require_account
+        self.media = MediaWatcher(lambda info: self.emit("now_playing", info or {"none": True}))
+        self.call = {"in_call": False}
+
+    def silent_now(self) -> bool:
+        """In a call (and the setting is on): reply on screen only, never talk into the call."""
+        return bool(self.settings["quiet_in_calls"] and self.call.get("in_call"))
+
+    def _calls_loop(self):
+        while True:
+            try:
+                me = os.getpid()
+                windows = [(h, t, tools_mod._proc_name(pid)) for h, t, pid in tools_mod.visible_windows() if pid != me]
+                status = live.call_status(windows)
+            except Exception:  # noqa: BLE001
+                log.debug("call check failed", exc_info=True)
+                status = {"in_call": False}
+            if status != self.call:
+                self.call = status
+                self.emit("call", status)
+            time.sleep(3)
 
     def hud_shown(self) -> bool:
         """Cheap check (called 30x a second by the orb): is the HUD on screen and not minimised?"""
@@ -287,7 +313,10 @@ class JarvisApp:
             self.emit("heard", {"text": text, "source": source})
             self.emit("state", {"state": "thinking"})
             # Speak while the reply is still streaming in: sentence 1 plays while sentence 2 is made.
-            stream = None if self.quiet else self.voice.stream()
+            silent = self.quiet or self.silent_now()
+            if self.silent_now():
+                self.emit("notice", {"text": f"You're in a call on {self.call['app']}, so I'll reply silently."})
+            stream = None if silent else self.voice.stream()
             player = threading.Thread(target=stream.play, daemon=True) if stream else None
             if player:
                 player.start()
@@ -353,7 +382,19 @@ class JarvisApp:
 
     def announce(self, text):
         self.emit("reply", {"text": text, "announce": True})
+        if self.silent_now():
+            self.emit("notice", {"text": text})
+            return
         threading.Thread(target=self.voice.speak, args=(text,), daemon=True).start()
+
+    def media_control(self, action) -> bool:
+        return self.media.control(action)
+
+    def now_playing(self):
+        return self.media.current
+
+    def call_info(self):
+        return self.call
 
     def camera_frame(self, img):
         self.emit("camera_frame", {"img": img} if img else {"error": "That camera isn't available."})
@@ -498,7 +539,7 @@ class JarvisApp:
         allowed = {"address_as", "model", "voice", "voice_rate", "voice_enabled", "wake_sensitivity",
                    "protected_apps", "ask_before_risky", "home_city", "start_with_windows", "whisper_model",
                    "show_overlay", "clap_to_wake", "show_on_wake", "language", "camera_index", "show_orb",
-                   "game_mode"}
+                   "game_mode", "quiet_in_calls"}
         if "camera_index" in values:
             values["camera_index"] = int(values["camera_index"] or 0)
         clean = {k: v for k, v in values.items() if k in allowed}
@@ -508,7 +549,11 @@ class JarvisApp:
             clean["wake_sensitivity"] = max(0.1, min(0.8, float(clean["wake_sensitivity"])))
         self.settings.update(clean)
         if "start_with_windows" in clean:
-            set_autostart(bool(clean["start_with_windows"]))
+            try:
+                set_autostart(bool(clean["start_with_windows"]))
+            except OSError:  # antivirus programs often block new apps from adding startup entries
+                log.warning("autostart change blocked", exc_info=True)
+                self.emit("notice", {"text": "Windows or your antivirus blocked 'Start with Windows'."})
         if "camera_index" in clean and self.toolbox.camera.running:  # switch the live view to the new camera
             self.toolbox.camera.stop()
             threading.Timer(0.5, self.toolbox.camera.start).start()
@@ -550,19 +595,22 @@ class JarvisApp:
         else:
             self._step("account", "Account link", "warn", "Website login not configured yet")
 
+        # Live panels first, so the HUD is alive while the AI model is still loading onto the GPU.
+        threading.Thread(target=self._stats_loop, daemon=True).start()
+        threading.Thread(target=self._news_loop, daemon=True).start()
+        threading.Thread(target=self._update_loop, daemon=True).start()
+        threading.Thread(target=self._locate, daemon=True).start()
+        threading.Thread(target=self._calls_loop, daemon=True).start()
+        self.media.start()
+        self._register_hotkey()
+
         self._step("ollama", "Neural core (Ollama)", "run")
         if self.brain.ensure_ollama():
             self._step("ollama", "Neural core (Ollama)", "ok")
             self._boot_model()
         else:
             self._step("ollama", "Neural core (Ollama)", "fail", "Install Ollama from ollama.com, then restart Jarvis")
-
         threading.Thread(target=self._boot_voice, daemon=True).start()
-        threading.Thread(target=self._stats_loop, daemon=True).start()
-        threading.Thread(target=self._news_loop, daemon=True).start()
-        threading.Thread(target=self._update_loop, daemon=True).start()
-        threading.Thread(target=self._locate, daemon=True).start()
-        self._register_hotkey()
 
     def _boot_model(self):
         model = self.settings["model"]
@@ -707,6 +755,11 @@ class JarvisApp:
             self.quit()
 
     def quit(self):
+        # Hard stop after 2 s whatever happens: a half-closed Jarvis keeps its files locked,
+        # which breaks updates and uninstalls.
+        threading.Timer(2.0, lambda: os._exit(0)).start()
+        self.voice.stop_speaking()
+        self.toolbox.camera.stop()
         try:
             if self.tray:
                 self.tray.stop()

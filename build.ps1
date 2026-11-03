@@ -11,6 +11,7 @@ try {
     & $py -m PyInstaller --noconfirm --clean --windowed `
         --name Jarvis `
         --icon assets\jarvis.ico `
+        --version-file assets\version_info.txt `
         --add-data "ui;ui" `
         --collect-all faster_whisper `
         --collect-all ctranslate2 `
@@ -23,6 +24,7 @@ try {
         --collect-submodules pycaw `
         --collect-submodules comtypes `
         --collect-submodules pygrabber `
+        --collect-all winrt `
         --collect-all screen_brightness_control `
         --hidden-import wave `
         --exclude-module tkinter `

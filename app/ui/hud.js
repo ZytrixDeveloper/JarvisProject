@@ -20,6 +20,7 @@
     look_at_screen: "Screen scan", look_through_camera: "Camera scan", take_screenshot: "Screenshot",
     get_news: "News Hub", read_clipboard: "Clipboard", remember: "Memory", forget: "Memory",
     set_reminder: "Reminder", design_3d: "3D Lab", build_project: "Code builder",
+    now_playing: "Now playing", call_status: "Calls",
   };
 
   /* ------------------------------------------------------------------ reactor animation */
@@ -313,6 +314,21 @@
       $("updBar").style.width = `${pct}%`;
       $("updStatus").textContent = installing ? "Installing... Jarvis will restart in a moment." : `Downloading update... ${pct}%`;
     },
+    now_playing(info) {
+      np = info.none ? null : { ...info, at: performance.now() };
+      const card = $("npCard");
+      card.classList.toggle("playing", !!(np && np.playing));
+      $("npTitle").textContent = np ? np.title : "Nothing playing";
+      $("npArtist").textContent = np ? (np.artist || np.album || "") : "Play music in Spotify, YouTube...";
+      $("npApp").textContent = np ? np.app : "";
+      if (np && np.art) $("npArt").style.backgroundImage = `url("${np.art}")`;
+      if (!np) $("npArt").style.backgroundImage = "";
+      $("npIcon").innerHTML = np && np.playing ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>' : '<path d="m8 5 11 7-11 7Z"/>';
+    },
+    call(info) {
+      $("callChip").hidden = !info.in_call;
+      if (info.in_call) $("callText").textContent = `IN CALL · ${info.app}`.toUpperCase();
+    },
     weather({ text }) {
       const short = text.replace(/\. Today.*$/, "").replace(/, humidity.*$/, "");
       $("weather").textContent = short;
@@ -377,6 +393,13 @@
     $("sensOut").textContent = form.elements.wake_sensitivity.value;
   }
 
+  let np = null;  // now playing; the progress bar moves locally between updates
+  setInterval(() => {
+    if (!np || !np.duration) { $("npBar").style.width = "0"; return; }
+    const pos = np.position + (np.playing ? (performance.now() - np.at) / 1000 : 0);
+    $("npBar").style.width = `${Math.min(100, (pos / np.duration) * 100)}%`;
+  }, 500);
+
   let liveCam = false;
   function setLiveCam(on) {
     liveCam = on;
@@ -438,6 +461,7 @@
     $("updateChip").addEventListener("click", () => { $("updateOverlay").hidden = false; });
     $("btnCheckUpdates").addEventListener("click", () => { api?.check_updates(); toast("Checking for updates..."); });
     $("btnLiveCam").addEventListener("click", () => setLiveCam(!liveCam));
+    document.querySelectorAll("[data-media]").forEach((b) => b.addEventListener("click", () => api?.media(b.dataset.media)));
     $("btnLab").addEventListener("click", () => { api?.open_lab(); openSettings(false); });
     $("btnUninstall").addEventListener("click", () => { openSettings(false); $("unStatus").textContent = ""; $("uninstallOverlay").hidden = false; });
     $("btnUnNo").addEventListener("click", () => { $("uninstallOverlay").hidden = true; });

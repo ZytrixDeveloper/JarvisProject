@@ -52,6 +52,11 @@ def download(info: dict, on_progress) -> str:
     return path
 
 
+UPDATE_LOG = os.path.join(tempfile.gettempdir(), "Jarvis-Update.log")
+
+
 def install(path: str):
-    """Run the installer quietly; it closes Jarvis, updates the files and starts Jarvis again."""
-    subprocess.Popen([path, "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS"], close_fds=True)
+    """Run the installer quietly; it closes Jarvis, updates the files and starts Jarvis again.
+    Its log goes to %TEMP%\\Jarvis-Update.log."""
+    subprocess.Popen([path, "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS",
+                      "/FORCECLOSEAPPLICATIONS", f"/LOG={UPDATE_LOG}"], close_fds=True)

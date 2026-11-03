@@ -18,3 +18,4 @@ app/assets/wizard-small.bmp
 .env*
 *secret*
 *api key*
+app/assets/version_info.txt

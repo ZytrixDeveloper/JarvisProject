@@ -55,7 +55,33 @@ def wizard_small():
     img.save(HERE / "wizard-small.bmp")
 
 
+def version_info():
+    """Windows version resource for Jarvis.exe (publisher, product, version). Unsigned EXEs without
+    this metadata look more suspicious to antivirus heuristics."""
+    from jarvis_core.config import APP_VERSION
+    nums = tuple(int(n) for n in APP_VERSION.split("."))[:3] + (0,)
+    text = f"""VSVersionInfo(
+  ffi=FixedFileInfo(filevers={nums}, prodvers={nums}, mask=0x3f, flags=0x0, OS=0x40004,
+                    fileType=0x1, subtype=0x0, date=(0, 0)),
+  kids=[
+    StringFileInfo([StringTable('040904B0', [
+      StringStruct('CompanyName', 'ZytrixDeveloper'),
+      StringStruct('FileDescription', 'J.A.R.V.I.S. personal AI assistant'),
+      StringStruct('FileVersion', '{APP_VERSION}'),
+      StringStruct('InternalName', 'Jarvis'),
+      StringStruct('LegalCopyright', 'Copyright (c) 2026 ZytrixDeveloper. MIT License.'),
+      StringStruct('OriginalFilename', 'Jarvis.exe'),
+      StringStruct('ProductName', 'J.A.R.V.I.S.'),
+      StringStruct('ProductVersion', '{APP_VERSION}')])]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)
+"""
+    (HERE / "version_info.txt").write_text(text, "utf-8")
+
+
 if __name__ == "__main__":
+    version_info()
     reactor_icon(256).save(HERE / "jarvis.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
     reactor_icon(512).save(HERE / "jarvis.png")
     wizard_image()

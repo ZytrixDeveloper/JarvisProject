@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 
 APP_NAME = "Jarvis"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 
 # Filled in once the website + Supabase project exist. These are public values
 # (the publishable/anon key is meant to ship inside apps; data is protected by RLS).
@@ -51,6 +51,7 @@ DEFAULTS = {
     "camera_index": 0,
     "show_orb": True,
     "game_mode": True,
+    "quiet_in_calls": True,
     "orb_position": [],
     "hotkey": "ctrl+alt+j",
     "protected_apps": ["whatsapp"],

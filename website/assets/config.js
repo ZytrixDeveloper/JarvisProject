@@ -4,5 +4,5 @@ window.JARVIS = {
   SUPABASE_URL: "https://cgiqqbibzmmqoquvyzlh.supabase.co",
   SUPABASE_KEY: "sb_publishable_jX5Dk3I4xHFm2mPeeyWOJg_Ud83QuK9",
   GITHUB_REPO: "ZytrixDeveloper/JarvisProject",
-  VERSION: "0.2.0",
+  VERSION: "0.2.1",
 };

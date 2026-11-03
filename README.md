@@ -58,6 +58,16 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 
 Output: `dist/Jarvis-Setup.exe`.
 
+## Antivirus & SmartScreen
+
+Jarvis is unsigned for now, so Windows SmartScreen shows "unrecognised app" for new downloads and some
+antivirus products scan (and briefly lock) the new `Jarvis.exe` during install. What's in place:
+
+- The installer places `Jarvis.exe` itself with up to 90 s of retries and explains clearly if it's really blocked.
+- `Jarvis.exe` and `Jarvis-Setup.exe` carry publisher/product/version resources; every release asset has a SHA-256 digest on GitHub.
+- MIT-licensed open source, which qualifies for free code signing through the [SignPath Foundation](https://signpath.org/) - the real fix for SmartScreen.
+- False positives can be reported to [Microsoft](https://www.microsoft.com/wdsi/filesubmission), [Avast](https://www.avast.com/false-positive-file-form.php) and [360](https://www.360totalsecurity.com/en/suspicion/).
+
 ## Ship an update
 
 1. Bump `APP_VERSION` in `app/jarvis_core/config.py` and write `installer/release-notes.md`.

@@ -702,10 +702,32 @@ class Toolbox:
         Args:
             action: play_pause, next, previous or stop
         """
-        import pyautogui
-        pyautogui.press({"play_pause": "playpause", "next": "nexttrack",
-                         "previous": "prevtrack", "stop": "stop"}[action])
+        control = getattr(self.ctx, "media_control", None)
+        if not (control and control(action)):  # talk to the player directly; media keys as fallback
+            import pyautogui
+            pyautogui.press({"play_pause": "playpause", "next": "nexttrack",
+                             "previous": "prevtrack", "stop": "stop"}[action])
         return f"Media: {action.replace('_', '/')}."
+
+    @tool()
+    def now_playing(self) -> str:
+        """What song or video is playing right now, in which app (Spotify, YouTube, ...), and its progress."""
+        info = self.ctx.now_playing()
+        if not info:
+            return "Nothing is playing right now."
+        pos, dur = int(info.get("position") or 0), int(info.get("duration") or 0)
+        progress = f", {pos // 60}:{pos % 60:02d} of {dur // 60}:{dur % 60:02d}" if dur else ""
+        state = "playing" if info["playing"] else "paused"
+        by = f" by {info['artist']}" if info.get("artist") else ""
+        return f"{state.capitalize()} in {info['app']}: '{info['title']}'{by}{progress}."
+
+    @tool()
+    def call_status(self) -> str:
+        """Whether the user is in a call right now and in which app (WhatsApp, Discord, Teams, Zoom, Meet...)."""
+        info = self.ctx.call_info()
+        if not info.get("in_call"):
+            return "No call in progress."
+        return f"In a call on {info['app']} ({info['detail']}). The contact's name is only known if the app shows it in its window title."
 
     @tool()
     def set_brightness(self, level: int) -> str:
