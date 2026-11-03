@@ -7,6 +7,7 @@
 <style>
 :root { --bg: #02070c; --cyan: #29d3ff; --soft: #8be9ff; --text: #d6f2ff; --muted: #6d95aa; --line: rgba(41,211,255,.18); --line2: rgba(41,211,255,.45); }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--text); font: 600 15px/1.35 "Rajdhani", "Segoe UI", sans-serif; overflow: hidden; user-select: none;
   border: 1px solid var(--line2); box-shadow: inset 0 0 60px rgba(41,211,255,.12); }
@@ -27,7 +28,8 @@ header { position: relative; display: flex; align-items: center; gap: 14px; heig
 .wbtn { width: 38px; height: 34px; border: 0; background: none; color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 16px; }
 .wbtn:hover { background: rgba(41,211,255,.12); color: var(--cyan); }
 .wbtn.x:hover { background: rgba(255,77,94,.2); color: #ff6b7a; }
-nav { display: flex; gap: 8px; padding: 12px 18px; overflow-x: auto; animation: fade .6s ease .15s both; }
+nav { display: flex; gap: 8px; padding: 12px 18px; overflow-x: auto; scrollbar-width: none; animation: fade .6s ease .15s both; }
+nav::-webkit-scrollbar { display: none; }
 nav button { flex: 0 0 auto; padding: 7px 16px; border-radius: 99px; border: 1px solid var(--line); background: rgba(41,211,255,.04); color: var(--muted);
   font: 700 12px "Orbitron"; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; transition: .25s; }
 nav button:hover { color: var(--text); border-color: var(--line2); }
@@ -56,6 +58,21 @@ footer b { flex: 0 0 auto; padding: 0 16px; height: 100%; display: grid; place-i
 .ticker { white-space: nowrap; display: inline-block; padding-left: 100%; animation: tick 60s linear infinite; color: var(--soft); }
 .ticker span { margin-right: 60px; }
 .ticker span::before { content: "\25C6  "; color: var(--cyan); }
+.tv { display: grid; grid-template-columns: 1fr 230px; gap: 14px; animation: card .5s ease both; }
+.screen { position: relative; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; border: 1px solid var(--line2);
+  box-shadow: 0 0 40px rgba(41,211,255,.25), inset 0 0 30px rgba(41,211,255,.1); background: #000; }
+.screen iframe { width: 100%; height: 100%; border: 0; }
+.screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 14px;
+  background: repeating-linear-gradient(180deg, rgba(41,211,255,.035) 0 2px, transparent 2px 4px); }
+.channels { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.channels button { text-align: left; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(7,22,34,.75);
+  color: var(--text); font: 700 15px "Rajdhani"; cursor: pointer; transition: .2s; display: flex; align-items: center; gap: 10px; }
+.channels button::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #ff4d5e; box-shadow: 0 0 8px #ff4d5e; flex: 0 0 auto; }
+.channels button:hover, .channels button.on { border-color: var(--cyan); box-shadow: 0 0 18px rgba(41,211,255,.3); }
+.channels button.on { background: rgba(41,211,255,.15); }
+nav button.tvtab { color: #ff8a95; border-color: rgba(255,77,94,.45); }
+nav button.tvtab.on { background: #ff4d5e; border-color: #ff4d5e; color: #fff; box-shadow: 0 0 22px rgba(255,77,94,.6); }
+@media (max-width: 760px) { .tv { grid-template-columns: 1fr; } .channels { flex-direction: row; flex-wrap: wrap; } }
 ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: rgba(41,211,255,.25); border-radius: 6px; }
 @keyframes grid { to { background-position: 0 320px, 320px 0; } }
 @keyframes sweep { to { top: 100%; } }
@@ -78,13 +95,53 @@ footer b { flex: 0 0 auto; padding: 0 16px; height: 100%; display: grid; place-i
   <button class="wbtn x" id="close" title="Close">&#x2715;</button>
 </header>
 <nav id="tabs"></nav>
-<main><div class="grid" id="grid"></div></main>
+<main>
+  <section class="tv" id="tv" hidden>
+    <div class="screen"><iframe id="tvFrame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
+    <div class="channels" id="channels"></div>
+  </section>
+  <div class="grid" id="grid"></div>
+</main>
 <footer><b>BREAKING</b><div class="ticker-wrap"><div class="ticker" id="ticker"></div></div></footer>
 <script>
-const TABS = [["", "Top stories"], ["world", "World"], ["technology", "Tech"], ["video games", "Gaming"],
+const TABS = [["__tv", "Live TV"], ["", "Top stories"], ["world", "World"], ["technology", "Tech"], ["video games", "Gaming"],
   ["sports", "Sports"], ["business", "Business"], ["science", "Science"], ["entertainment", "Entertainment"]];
+// 24/7 live news streams on YouTube (channel IDs).
+const CHANNELS = [["Sky News", "UCoMdktPbSTixAyNGwb-UYkQ"], ["Al Jazeera English", "UCNye-wNBqNL5ZzHSJj3l8Bg"],
+  ["DW News", "UCknLrEdhRCp1aegoMqRaCZg"], ["France 24 English", "UCQfwfsi5VrQ8yKZ-UWmAEFg"],
+  ["Bloomberg TV", "UCIALMKvObZNtJ6AmdCLP7Lg"], ["NBC News NOW", "UCeY0bbntWzzVIaj2z3QigXg"],
+  ["ABC News Live", "UCBi2mrWuNuyYy4gbM6fU18Q"], ["CNA", "UC83jt4dlz1Gjl58fzQrrKZg"],
+  ["Euronews", "UCSrZ3UV4jOidv8ppoVuvW9Q"], ["TRT World", "UC7fWeaHhqgM4Ry-RMpM2YYw"],
+  ["WION", "UC_gUM8rL-Lrg6O3adPW9K1g"], ["Reuters", "UChqUTb7kYRX8-EiaN3XFrSQ"]];
 let api = null, topic = "";
 const $ = (id) => document.getElementById(id);
+
+async function playChannel(i) {
+  const [name, id] = CHANNELS[i];
+  [...$("channels").children].forEach((b, j) => b.classList.toggle("on", j === i));
+  $("ticker").innerHTML = `<span>Tuning in to ${name}...</span>`;
+  const vid = await api.live_video(id);  // the channel's current live stream
+  if (!vid) {
+    $("tvFrame").removeAttribute("src");
+    $("ticker").innerHTML = `<span>${name} isn't streaming right now, try another channel</span>`;
+    return;
+  }
+  $("tvFrame").src = `https://www.youtube.com/embed/${vid}?autoplay=1&rel=0&modestbranding=1`;
+  $("ticker").innerHTML = `<span>LIVE: ${name}</span>`;
+}
+
+function showTV(on) {
+  $("tv").hidden = !on;
+  $("grid").hidden = on;
+  if (on && !$("tvFrame").src) playChannel(0);
+  if (!on) $("tvFrame").removeAttribute("src");  // stop the stream when leaving the tab
+}
+CHANNELS.forEach(([name], i) => {
+  const b = document.createElement("button");
+  b.textContent = name;
+  b.addEventListener("click", () => playChannel(i));
+  $("channels").append(b);
+});
 
 function favicon(domain) { return domain ? `https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(domain)}` : ""; }
 
@@ -115,6 +172,8 @@ function render(items) {
 async function load(t) {
   topic = t || "";
   [...$("tabs").children].forEach((b) => b.classList.toggle("on", b.dataset.t === topic));
+  showTV(topic === "__tv");
+  if (topic === "__tv") return;
   $("grid").innerHTML = '<div class="state"><div class="spin"></div>Scanning news networks...</div>';
   try { render(await api.load(topic)); } catch (e) { $("grid").innerHTML = '<div class="state">Couldn\'t reach the news networks.</div>'; }
 }
@@ -124,6 +183,7 @@ window.newsHub = { show: (t) => load(t) };
 for (const [t, label] of TABS) {
   const b = document.createElement("button");
   b.dataset.t = t; b.textContent = label;
+  if (t === "__tv") b.className = "tvtab";
   b.addEventListener("click", () => load(t));
   $("tabs").append(b);
 }

@@ -64,12 +64,52 @@ Filename: "{app}\{#AppExe}"; Flags: nowait; Check: WizardSilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
+; settings, memory, login, speech + wake-word models, logs
+Type: filesandordirs; Name: "{userappdata}\Jarvis"
 
 [Code]
 function OllamaInstalled: Boolean;
 begin
   Result := FileExists(ExpandConstant('{localappdata}\Programs\Ollama\ollama.exe'))
     or FileExists(ExpandConstant('{commonpf}\Ollama\ollama.exe'));
+end;
+
+function OllamaExe: String;
+begin
+  Result := ExpandConstant('{localappdata}\Programs\Ollama\ollama.exe');
+  if not FileExists(Result) then
+    Result := ExpandConstant('{commonpf}\Ollama\ollama.exe');
+end;
+
+function HasParam(const Name: String): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if CompareText(ParamStr(I), Name) = 0 then
+      Result := True;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Code: Integer;
+  RemoveModels: Boolean;
+begin
+  if CurUninstallStep = usUninstall then
+    RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Jarvis');
+  if (CurUninstallStep = usPostUninstall) and FileExists(OllamaExe) then
+  begin
+    RemoveModels := HasParam('/REMOVEMODELS');
+    if (not RemoveModels) and (not UninstallSilent) then
+      RemoveModels := MsgBox('Also delete Jarvis''s AI models from Ollama (frees about 3-10 GB)?',
+                             mbConfirmation, MB_YESNO) = IDYES;
+    if RemoveModels then
+    begin
+      Exec(OllamaExe, 'rm qwen3-vl:4b-instruct', '', SW_HIDE, ewWaitUntilTerminated, Code);
+      Exec(OllamaExe, 'rm qwen3-vl:8b-instruct', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    end;
+  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

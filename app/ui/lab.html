@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>J.A.R.V.I.S. 3D Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #02070c; --cyan: #29d3ff; --soft: #8be9ff; --text: #d6f2ff; --muted: #6d95aa; --line: rgba(41,211,255,.18); --line2: rgba(41,211,255,.45); --panel: rgba(5,16,26,.82); }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font: 600 14px/1.35 "Rajdhani", "Segoe UI", sans-serif; user-select: none; }
+body { border: 1px solid var(--line2); }
+#view { position: fixed; inset: 0; }
+header { position: fixed; top: 0; left: 0; right: 0; height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 10px 0 16px; z-index: 5;
+  background: linear-gradient(180deg, rgba(4,14,24,.96), rgba(4,14,24,.6)); border-bottom: 1px solid var(--line); }
+.title { font: 800 13px "Orbitron"; letter-spacing: .32em; color: var(--cyan); text-shadow: 0 0 12px rgba(41,211,255,.7); }
+#name { font: 700 16px "Rajdhani"; color: var(--text); letter-spacing: .04em; }
+.spacer { flex: 1; align-self: stretch; }
+.tool { height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--line); background: rgba(41,211,255,.05); color: var(--muted);
+  font: 700 11px "Orbitron"; letter-spacing: .12em; cursor: pointer; transition: .2s; }
+.tool:hover { color: var(--text); border-color: var(--line2); }
+.tool.on { background: var(--cyan); color: #00131d; border-color: var(--cyan); box-shadow: 0 0 16px rgba(41,211,255,.5); }
+.x { width: 38px; height: 32px; border: 0; background: none; color: var(--muted); font-size: 16px; cursor: pointer; border-radius: 6px; }
+.x:hover { background: rgba(255,77,94,.2); color: #ff6b7a; }
+aside { position: fixed; top: 64px; bottom: 76px; width: 250px; z-index: 4; padding: 14px; border-radius: 14px; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(8px); animation: slide .6s cubic-bezier(.2,.8,.2,1) both; }
+#parts { left: 12px; } #plan { right: 12px; animation-name: slideR; }
+h3 { margin: 0 0 10px; font: 700 11px "Orbitron"; letter-spacing: .24em; color: var(--soft); }
+.part { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; cursor: pointer; color: var(--text); }
+.part:hover { background: rgba(41,211,255,.08); } .part.sel { background: rgba(41,211,255,.18); box-shadow: inset 0 0 0 1px var(--line2); }
+.part i { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; box-shadow: 0 0 6px currentColor; }
+.props { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); display: grid; gap: 8px; }
+.props label { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; }
+.props input[type=color] { width: 44px; height: 26px; border: 1px solid var(--line2); border-radius: 6px; background: none; padding: 0; }
+.props select { background: #071420; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font: inherit; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; }
+ol { margin: 0; padding-left: 0; list-style: none; counter-reset: s; display: grid; gap: 8px; }
+ol li { counter-increment: s; display: grid; grid-template-columns: 26px 1fr; gap: 8px; color: var(--text); cursor: pointer; }
+ol li::before { content: counter(s); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font: 800 11px "Orbitron"; color: #00131d; background: var(--cyan); box-shadow: 0 0 10px rgba(41,211,255,.5); }
+ol li.done { color: var(--muted); text-decoration: line-through; } ol li.done::before { background: #3dffa8; }
+footer { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(720px, calc(100% - 560px)); min-width: 320px; z-index: 5;
+  display: flex; gap: 8px; padding: 6px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line2); box-shadow: 0 0 30px rgba(41,211,255,.15); }
+footer input { flex: 1; background: none; border: 0; outline: 0; color: var(--text); font: 600 15px "Rajdhani"; padding: 0 14px; user-select: text; }
+footer button { height: 38px; padding: 0 18px; border-radius: 99px; border: 0; background: var(--cyan); color: #00131d; font: 800 11px "Orbitron"; letter-spacing: .14em; cursor: pointer; box-shadow: 0 0 16px rgba(41,211,255,.5); }
+#loading { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; background: rgba(2,7,12,.75); backdrop-filter: blur(4px); }
+#loading div { text-align: center; font: 700 12px "Orbitron"; letter-spacing: .3em; color: var(--cyan); }
+#loading div::before { content: ""; display: block; width: 70px; height: 70px; margin: 0 auto 18px; border-radius: 50%; border: 3px solid rgba(41,211,255,.2); border-top-color: var(--cyan); box-shadow: 0 0 30px rgba(41,211,255,.4); animation: spin .9s linear infinite; }
+.hint { position: fixed; left: 50%; top: 62px; transform: translateX(-50%); z-index: 4; color: var(--muted); font-size: 12px; letter-spacing: .08em; }
+.toast { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); z-index: 9; padding: 8px 16px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line2); opacity: 0; transition: .3s; }
+.toast.show { opacity: 1; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes slide { from { opacity: 0; transform: translateX(-30px); } }
+@keyframes slideR { from { opacity: 0; transform: translateX(30px); } }
+</style>
+<script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="view"></div>
+<header class="pywebview-drag-region">
+  <span class="title pywebview-drag-region">3D LAB</span><span id="name" class="pywebview-drag-region"></span>
+  <div class="spacer pywebview-drag-region"></div>
+  <button class="tool on" data-mode="translate" title="Move (W)">MOVE</button>
+  <button class="tool" data-mode="rotate" title="Rotate (E)">ROTATE</button>
+  <button class="tool" data-mode="scale" title="Resize (R)">SIZE</button>
+  <button class="tool" id="explode">EXPLODE</button>
+  <button class="tool on" id="spin">SPIN</button>
+  <button class="tool" id="save">SAVE</button>
+  <button class="x" id="close" title="Close">&#x2715;</button>
+</header>
+<div class="hint">Drag to orbit · scroll to zoom · click a part to edit it · Del removes it</div>
+<aside id="parts"><h3>PARTS</h3><div id="list"></div>
+  <div class="props" id="props" hidden>
+    <label>Colour <input type="color" id="pColor"></label>
+    <label>Material <select id="pMat"><option>metal</option><option>plastic</option><option>glass</option><option>rubber</option><option>wood</option><option>emissive</option></select></label>
+    <div class="row"><button class="tool" id="dup">DUPLICATE</button><button class="tool" id="del">DELETE</button></div>
+  </div>
+  <div class="props"><div class="row"><button class="tool" data-add="box">+ BOX</button><button class="tool" data-add="cylinder">+ CYL</button><button class="tool" data-add="sphere">+ BALL</button></div></div>
+</aside>
+<aside id="plan"><h3>BUILD PLAN</h3><ol id="steps"></ol></aside>
+<footer><input id="prompt" placeholder="Describe something to design, e.g. a racing drone with 4 rotors"><button id="go">DESIGN</button></footer>
+<div id="loading" hidden><div>DESIGNING...</div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { TransformControls } from "three/addons/controls/TransformControls.js";
+
+const $ = (id) => document.getElementById(id);
+let api = null, design = null, selected = null, exploded = false;
+const meshes = [];
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+$("view").append(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x02070c);
+scene.fog = new THREE.Fog(0x02070c, 18, 60);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
+camera.position.set(6, 4, 7);
+scene.add(new THREE.HemisphereLight(0x9fe8ff, 0x0a1a24, 0.9));
+const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(5, 9, 6); scene.add(key);
+const rim = new THREE.DirectionalLight(0x29d3ff, 1.4); rim.position.set(-6, 4, -8); scene.add(rim);
+const grid = new THREE.GridHelper(40, 80, 0x29d3ff, 0x0d3347); grid.material.transparent = true; grid.material.opacity = 0.35; scene.add(grid);
+const ring = new THREE.Mesh(new THREE.RingGeometry(3.2, 3.26, 96), new THREE.MeshBasicMaterial({ color: 0x29d3ff, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+ring.rotation.x = -Math.PI / 2; scene.add(ring);
+
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true; orbit.autoRotate = true; orbit.autoRotateSpeed = 0.8;
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.addEventListener("dragging-changed", (e) => { orbit.enabled = !e.value; });
+scene.add(gizmo.getHelper ? gizmo.getHelper() : gizmo);
+
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener("resize", resize); resize();
+
+const MATS = {
+  metal: { metalness: 0.85, roughness: 0.3 }, plastic: { metalness: 0.05, roughness: 0.45 },
+  glass: { metalness: 0, roughness: 0.05, transparent: true, opacity: 0.35 }, rubber: { metalness: 0, roughness: 0.95 },
+  wood: { metalness: 0, roughness: 0.8 }, emissive: { metalness: 0.2, roughness: 0.4, emissiveIntensity: 1.6 },
+};
+const n = (v, d) => (Number.isFinite(+v) && +v !== 0 ? Math.abs(+v) : d);
+
+function geometry(p) {
+  const [a, b, c] = (p.size || [1, 1, 1]).map(Number);
+  switch ((p.shape || "box").toLowerCase()) {
+    case "cylinder": return new THREE.CylinderGeometry(n(a, .5), n(c, n(a, .5)), n(b, 1), 40);
+    case "cone": return new THREE.ConeGeometry(n(a, .5), n(b, 1), 40);
+    case "sphere": return new THREE.SphereGeometry(n(a, .5), 40, 24);
+    case "torus": return new THREE.TorusGeometry(n(a, .5), n(b, .12), 20, 60);
+    default: return new THREE.BoxGeometry(n(a, 1), n(b, 1), n(c, 1));
+  }
+}
+
+function material(p) {
+  const kind = MATS[p.material] ? p.material : "metal";
+  const color = new THREE.Color(/^#[0-9a-f]{6}$/i.test(p.color || "") ? p.color : "#9fb4c4");
+  const m = new THREE.MeshStandardMaterial({ color, ...MATS[kind] });
+  if (kind === "emissive") m.emissive = color.clone();
+  return m;
+}
+
+function makeMesh(p) {
+  const mesh = new THREE.Mesh(geometry(p), material(p));
+  const [x, y, z] = (p.position || [0, 0, 0]).map(Number);
+  const [rx, ry, rz] = (p.rotation || [0, 0, 0]).map((v) => THREE.MathUtils.degToRad(+v || 0));
+  mesh.userData = { part: p, home: new THREE.Vector3(x || 0, y || 0, z || 0) };
+  mesh.position.copy(mesh.userData.home);
+  mesh.rotation.set(rx, ry, rz);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 30),
+    new THREE.LineBasicMaterial({ color: 0x29d3ff, transparent: true, opacity: 0.35 }));
+  mesh.add(edges);
+  return mesh;
+}
+
+function load(d) {
+  if (!d) return;
+  design = d;
+  gizmo.detach(); selected = null;
+  for (const m of meshes) scene.remove(m);
+  meshes.length = 0;
+  $("name").textContent = d.title || "";
+  d.parts.forEach((p, i) => {
+    const m = makeMesh(p);
+    m.position.y += 6; m.userData.delay = i * 60;  // parts fly in and assemble
+    m.userData.born = performance.now();
+    scene.add(m); meshes.push(m);
+  });
+  $("steps").innerHTML = "";
+  (d.steps || []).forEach((s) => { const li = document.createElement("li"); li.textContent = s; li.onclick = () => li.classList.toggle("done"); $("steps").append(li); });
+  renderList(); frame();
+}
+
+function frame() {
+  const box = new THREE.Box3(); meshes.forEach((m) => box.expandByObject(m));
+  if (box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3()).length() || 4, center = box.getCenter(new THREE.Vector3());
+  center.y -= 6;  // parts start 6 m up while assembling
+  orbit.target.copy(center.setY(Math.max(center.y, 0.5)));
+  camera.position.copy(orbit.target).add(new THREE.Vector3(size * .9, size * .55, size * 1.05));
+  ring.scale.setScalar(Math.max(.4, size / 6));
+}
+
+function renderList() {
+  $("list").innerHTML = "";
+  meshes.forEach((m) => {
+    const row = document.createElement("div");
+    row.className = "part" + (m === selected ? " sel" : "");
+    const dot = document.createElement("i"); dot.style.background = dot.style.color = "#" + m.material.color.getHexString();
+    row.append(dot, document.createTextNode(m.userData.part.name || m.userData.part.shape));
+    row.onclick = () => select(m);
+    $("list").append(row);
+  });
+  $("props").hidden = !selected;
+  if (selected) { $("pColor").value = "#" + selected.material.color.getHexString(); $("pMat").value = selected.userData.part.material || "metal"; }
+}
+
+function select(m) {
+  if (selected) selected.material.emissiveIntensity = selected.userData.part.material === "emissive" ? 1.6 : 0;
+  selected = m;
+  if (m) { gizmo.attach(m); if (m.userData.part.material !== "emissive") { m.material.emissive = new THREE.Color(0x0b4a63); m.material.emissiveIntensity = 1; } }
+  else gizmo.detach();
+  renderList();
+}
+
+// click to select
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(); let down = null;
+renderer.domElement.addEventListener("pointerdown", (e) => { down = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener("pointerup", (e) => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4 || gizmo.dragging) return;
+  mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(meshes, false)[0];
+  select(hit ? hit.object : null);
+});
+
+document.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => setMode(b.dataset.mode));
+function setMode(mode) { gizmo.setMode(mode); document.querySelectorAll("[data-mode]").forEach((x) => x.classList.toggle("on", x.dataset.mode === mode)); }
+addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "w") setMode("translate"); if (e.key === "e") setMode("rotate"); if (e.key === "r") setMode("scale");
+  if (e.key === "Delete" && selected) remove(selected);
+  if (e.key === "Escape") select(null);
+});
+function remove(m) { gizmo.detach(); scene.remove(m); meshes.splice(meshes.indexOf(m), 1); selected = null; renderList(); }
+$("del").onclick = () => selected && remove(selected);
+$("dup").onclick = () => {
+  if (!selected) return;
+  const p = JSON.parse(JSON.stringify(sync(selected))); p.name += " copy";
+  const m = makeMesh(p); m.position.x += 0.5; m.userData.home.copy(m.position); scene.add(m); meshes.push(m); select(m);
+};
+document.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => {
+  const shape = b.dataset.add, p = { name: `New ${shape}`, shape, size: shape === "box" ? [1, 1, 1] : [.5, 1, .5], position: [0, 1, 0], rotation: [0, 0, 0], color: "#29d3ff", material: "plastic" };
+  const m = makeMesh(p); scene.add(m); meshes.push(m); select(m);
+});
+$("pColor").oninput = (e) => { if (selected) { selected.material.color.set(e.target.value); selected.userData.part.color = e.target.value; renderList(); } };
+$("pMat").onchange = (e) => {
+  if (!selected) return;
+  selected.userData.part.material = e.target.value;
+  const m = material(selected.userData.part); selected.material.dispose(); selected.material = m; select(selected);
+};
+$("spin").onclick = (e) => { orbit.autoRotate = !orbit.autoRotate; e.target.classList.toggle("on", orbit.autoRotate); };
+$("explode").onclick = (e) => {
+  exploded = !exploded; e.target.classList.toggle("on", exploded);
+  const c = new THREE.Box3().setFromObject(new THREE.Group().add(...meshes.map((m) => m.clone()))).getCenter(new THREE.Vector3());
+  meshes.forEach((m) => { m.userData.target = exploded ? m.userData.home.clone().add(m.userData.home.clone().sub(c).multiplyScalar(0.9)) : m.userData.home.clone(); });
+};
+gizmo.addEventListener("objectChange", () => { if (selected) selected.userData.home.copy(selected.position); });
+
+function sync(m) {  // write the mesh's current transform back into its part
+  const p = m.userData.part;
+  p.position = m.userData.home.toArray().map((v) => +v.toFixed(3));
+  p.rotation = [m.rotation.x, m.rotation.y, m.rotation.z].map((v) => +THREE.MathUtils.radToDeg(v).toFixed(1));
+  p.size = (p.size || [1, 1, 1]).map((v, i) => +(v * [m.scale.x, m.scale.y, m.scale.z][i]).toFixed(3));
+  return p;
+}
+function toast(t) { $("toast").textContent = t; $("toast").classList.add("show"); setTimeout(() => $("toast").classList.remove("show"), 2600); }
+$("save").onclick = async () => {
+  if (!design) return;
+  design.parts = meshes.map(sync);
+  toast(`Saved to ${await api.save(design)}`);
+};
+$("close").onclick = () => api.close();
+async function redesign() {
+  const text = $("prompt").value.trim(); if (!text) return;
+  $("loading").hidden = false;
+  try { load(await api.redesign(text)); } catch (e) { toast("Design failed, try describing it differently."); }
+  $("loading").hidden = true;
+}
+$("go").onclick = redesign;
+$("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter") redesign(); });
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const now = performance.now(), t = clock.getElapsedTime();
+  for (const m of meshes) {
+    if (m === selected && gizmo.dragging) continue;
+    const ud = m.userData;
+    const goal = ud.target || ud.home;
+    if (ud.born !== undefined) {  // assemble animation
+      const k = Math.min(1, Math.max(0, (now - ud.born - ud.delay) / 700));
+      m.position.y = goal.y + 6 * (1 - k) * (1 - k);
+      m.position.x += (goal.x - m.position.x) * 0.2; m.position.z += (goal.z - m.position.z) * 0.2;
+      if (k >= 1) delete ud.born;
+    } else if (m !== selected || !gizmo.dragging) {
+      m.position.lerp(goal, 0.12);
+    }
+  }
+  ring.rotation.z = t * 0.3; ring.material.opacity = 0.35 + 0.2 * Math.sin(t * 2);
+  orbit.update(); renderer.render(scene, camera);
+});
+
+window.lab = { load };
+async function init() { api = window.pywebview.api; const d = await api.get_design(); if (d) load(d); else $("prompt").focus(); }
+if (window.pywebview?.api) init(); else addEventListener("pywebviewready", init);
+</script>
+</body>
+</html>

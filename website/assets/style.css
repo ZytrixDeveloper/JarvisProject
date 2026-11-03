@@ -152,6 +152,20 @@ section.block { padding: 90px 0; }
 .term-line .tool::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
 .caret { display: inline-block; width: 9px; height: 18px; background: var(--cyan); vertical-align: -3px; animation: blink 1s steps(1) infinite; }
 
+/* live world */
+.world { display: grid; grid-template-columns: .9fr 1.1fr; gap: 30px; align-items: center; }
+.live-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-card { padding: 18px 20px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--panel); }
+.stat-card b { display: block; font: 800 34px var(--hud); color: var(--cyan); text-shadow: 0 0 18px rgba(41, 211, 255, .45); }
+.stat-card span { color: var(--muted); font-size: 14px; letter-spacing: .1em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+.stat-card.online { border-color: rgba(61, 255, 168, .4); box-shadow: 0 0 30px rgba(61, 255, 168, .08); }
+.stat-card.online b { color: var(--green); text-shadow: 0 0 18px rgba(61, 255, 168, .5); }
+.stat-card.online i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); animation: blink 1.4s infinite; }
+.earth-stage { position: relative; aspect-ratio: 1; max-width: 560px; width: 100%; justify-self: center; cursor: grab; }
+.earth-stage:active { cursor: grabbing; }
+.earth-stage::before { content: ""; position: absolute; inset: 8%; border-radius: 50%; background: radial-gradient(circle, rgba(41, 211, 255, .18), transparent 65%); }
+#earth { position: relative; width: 100%; height: 100%; touch-action: pan-y; }
+
 /* features */
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .feature .icon {
@@ -280,7 +294,7 @@ footer nav { display: flex; gap: 20px; }
 .reveal.in { opacity: 1; transform: none; }
 
 @media (max-width: 960px) {
-  .hero .wrap, .download-card, .account-grid { grid-template-columns: 1fr; }
+  .hero .wrap, .download-card, .account-grid, .world { grid-template-columns: 1fr; }
   .reactor-stage { max-width: 380px; order: -1; }
   .grid-3 { grid-template-columns: 1fr 1fr; }
   .steps { grid-template-columns: 1fr 1fr; }

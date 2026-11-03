@@ -86,6 +86,36 @@ function initTilt() {
   }
 }
 
+/* live stats (online now, users, countries) from the public jarvis_stats() function */
+async function loadStats() {
+  try {
+    const r = await fetch(`${JARVIS.SUPABASE_URL}/rest/v1/rpc/jarvis_stats`, {
+      method: "POST", headers: { apikey: JARVIS.SUPABASE_KEY, "Content-Type": "application/json" }, body: "{}",
+    });
+    if (!r.ok) return null;
+    const s = await r.json();
+    for (const el of $all("[data-stat]")) {
+      const v = s[el.dataset.stat];
+      if (v === undefined) continue;
+      const from = parseInt(el.textContent, 10) || 0;
+      animateCount(el, from, v);
+    }
+    return s;
+  } catch {
+    return null;
+  }
+}
+
+function animateCount(el, from, to) {
+  const start = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - start) / 900);
+    el.textContent = Math.round(from + (to - from) * (1 - (1 - k) ** 3));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 /* scroll reveal */
 function initReveal() {
   const io = new IntersectionObserver((entries) => {

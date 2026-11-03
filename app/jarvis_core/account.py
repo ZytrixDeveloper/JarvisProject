@@ -52,6 +52,7 @@ class Account:
         self.session = self._load()
         self._server = None
         self.enabled = True  # False in --test mode: no account lock
+        self.location = None  # {"country", "lat", "lon"} rounded to whole degrees (~100 km)
 
     @property
     def configured(self) -> bool:
@@ -114,11 +115,16 @@ class Account:
         return r.json()
 
     def _touch_device(self):
-        requests.patch(f"{SUPABASE_URL}/rest/v1/devices",
-                       headers={**self._headers(self.session["access_token"]), "Prefer": "return=minimal"},
-                       params={"device_id": f"eq.{self.settings['device_id']}"},
-                       json={"last_seen": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                             "app_version": APP_VERSION}, timeout=10)
+        """Check in: powers the website's "online now" counter and world map (country level only)."""
+        body = {"last_seen": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "app_version": APP_VERSION}
+        if self.location:
+            body.update(self.location)
+        for attempt in (body, {k: body[k] for k in ("last_seen", "app_version")}):
+            r = requests.patch(f"{SUPABASE_URL}/rest/v1/devices",
+                               headers={**self._headers(self.session["access_token"]), "Prefer": "return=minimal"},
+                               params={"device_id": f"eq.{self.settings['device_id']}"}, json=attempt, timeout=10)
+            if r.status_code != 400:  # 400 = location columns not created yet (supabase-stats.sql not run)
+                return
 
     # ------------------------------------------------------------ public api
 
@@ -143,16 +149,21 @@ class Account:
             return self.user, "offline"
 
     def keep_alive(self):
-        """Refresh the token every 45 minutes while the app runs."""
+        """Check in every 5 minutes (powers the website's "online now" counter) and
+        refresh the login token every 45 minutes while the app runs."""
         def loop():
+            refreshed = time.time()
             while True:
-                time.sleep(45 * 60)
-                if self.session:
-                    try:
+                time.sleep(5 * 60)
+                if not self.session:
+                    continue
+                try:
+                    if time.time() - refreshed > 45 * 60:
                         self._refresh()
-                        self._touch_device()
-                    except (AuthError, requests.RequestException):
-                        log.warning("background refresh failed", exc_info=True)
+                        refreshed = time.time()
+                    self._touch_device()
+                except (AuthError, requests.RequestException):
+                    log.warning("background check-in failed", exc_info=True)
         threading.Thread(target=loop, daemon=True).start()
 
     def sign_out(self, remote=True):

@@ -30,6 +30,23 @@ VOICES = [
     ("en-US-AriaNeural", "Aria (American, female)"),
 ]
 
+# Native male voice per language, used when Jarvis hears you speak that language.
+VOICE_BY_LANG = {
+    "sk": "sk-SK-LukasNeural", "cs": "cs-CZ-AntoninNeural", "de": "de-DE-ConradNeural",
+    "pl": "pl-PL-MarekNeural", "hu": "hu-HU-TamasNeural", "fr": "fr-FR-HenriNeural",
+    "es": "es-ES-AlvaroNeural", "it": "it-IT-DiegoNeural", "pt": "pt-BR-AntonioNeural",
+    "nl": "nl-NL-MaartenNeural", "ru": "ru-RU-DmitryNeural", "uk": "uk-UA-OstapNeural",
+    "tr": "tr-TR-AhmetNeural", "ja": "ja-JP-KeitaNeural", "zh": "zh-CN-YunxiNeural",
+    "ko": "ko-KR-InJoonNeural", "ar": "ar-SA-HamedNeural", "hi": "hi-IN-MadhurNeural",
+    "sv": "sv-SE-MattiasNeural", "ro": "ro-RO-EmilNeural", "hr": "hr-HR-SreckoNeural",
+    "sl": "sl-SI-RokNeural", "sr": "sr-RS-NicholasNeural", "bg": "bg-BG-BorislavNeural",
+    "el": "el-GR-NestorasNeural", "fi": "fi-FI-HarriNeural", "da": "da-DK-JeppeNeural",
+    "no": "nb-NO-FinnNeural",
+}
+LANGUAGES = [("auto", "Automatic (the language you speak)"), ("en", "English"), ("sk", "Slovenčina"),
+             ("cs", "Čeština"), ("de", "Deutsch"), ("pl", "Polski"), ("hu", "Magyar"), ("fr", "Français"),
+             ("es", "Español"), ("it", "Italiano"), ("uk", "Українська"), ("ru", "Русский")]
+
 
 def _rms(frame: np.ndarray) -> float:
     return float(np.sqrt(np.mean(frame.astype(np.float32) ** 2)))
@@ -61,6 +78,7 @@ class Voice:
         self._speak_lock = threading.Lock()
         self._answer_req = None
         self.on_wake = None          # called when woken (wake word, clap, hotkey): e.g. show the HUD
+        self.last_lang = "en"        # language detected in the last spoken command
         self._claps = []             # timestamps of recent clap-like sound spikes
         self._prev_level = 0.0
 
@@ -166,10 +184,15 @@ class Voice:
             if scores and max(scores.values()) >= threshold:
                 self._wake.reset()
                 self._command()
-            elif self.settings["clap_to_wake"] and self._double_clap(level):
+            elif self.settings["clap_to_wake"] and self._double_clap(level) and not self._gaming():
                 self._command()
             else:
                 self._noise = 0.97 * self._noise + 0.03 * min(level, 3000)
+
+    def _gaming(self) -> bool:
+        """Games are loud (gunshots, explosions): no clap wake-ups while one is fullscreen."""
+        from .overlay import fullscreen_app_active
+        return bool(self.settings["game_mode"]) and fullscreen_app_active()
 
     def _double_clap(self, level: float) -> bool:
         """Two short, sharp sound spikes 0.15-0.9 s apart."""
@@ -243,10 +266,25 @@ class Voice:
 
     def transcribe(self, audio: np.ndarray) -> str:
         samples = audio.astype(np.float32) / 32768.0
-        segments, _ = self._stt.transcribe(
-            samples, language="en", beam_size=1, vad_filter=True, condition_on_previous_text=False,
-            initial_prompt="Hey Jarvis, open Chrome. What's the weather? Turn the volume up.")
-        return " ".join(s.text.strip() for s in segments).strip()
+        lang = self.settings["language"]
+        english_only = self.settings["whisper_model"].endswith(".en")
+        segments, info = self._stt.transcribe(
+            samples, language="en" if english_only else (None if lang == "auto" else lang),
+            beam_size=1, vad_filter=True, condition_on_previous_text=False, without_timestamps=True,
+            initial_prompt="Jarvis.")
+        text = " ".join(s.text.strip() for s in segments).strip()
+        if info.language and (info.language_probability or 0) > 0.5:
+            self.last_lang = info.language
+        return text
+
+    def current_voice(self) -> str:
+        lang = self.settings["language"]
+        lang = self.last_lang if lang == "auto" else lang
+        return VOICE_BY_LANG.get(lang, self.settings["voice"])
+
+    def stream(self) -> "SpeechStream":
+        """Speak sentences as they arrive: the next sentence is synthesised while one plays."""
+        return SpeechStream(self)
 
     # ------------------------------------------------------------ speaking
 
@@ -296,7 +334,7 @@ class Voice:
         import miniaudio
 
         async def fetch():
-            comm = edge_tts.Communicate(text, self.settings["voice"], rate=self.settings["voice_rate"])
+            comm = edge_tts.Communicate(text, self.current_voice(), rate=self.settings["voice_rate"])
             data = bytearray()
             async for chunk in comm.stream():
                 if chunk["type"] == "audio":
@@ -325,6 +363,65 @@ class Voice:
         engine.say(text)
         engine.runAndWait()
         engine.stop()
+
+
+class SpeechStream:
+    """Pipelined speech: add() sentences while the reply streams in, play() speaks them in order."""
+
+    def __init__(self, voice: Voice):
+        self.v = voice
+        self.texts = queue.Queue()
+        self.audio = queue.Queue(maxsize=4)
+        threading.Thread(target=self._synthesise, daemon=True).start()
+
+    def add(self, text: str):
+        text = clean_for_speech(text)
+        if text and self.v.settings["voice_enabled"]:
+            self.texts.put(text)
+
+    def finish(self):
+        self.texts.put(None)
+
+    def _synthesise(self):
+        while (text := self.texts.get()) is not None:
+            if self.v._stop_speech.is_set():
+                continue
+            try:
+                self.audio.put((text, self.v._neural_voice(text)))
+            except Exception:  # noqa: BLE001 - offline -> Windows voice
+                log.warning("edge-tts failed, using Windows voice", exc_info=True)
+                self.audio.put((text, None))
+        self.audio.put(None)
+
+    def play(self):
+        """Blocks until everything added before finish() has been spoken (or Esc stopped it)."""
+        v = self.v
+        v._stop_speech.clear()
+        while (item := self.audio.get()) is not None:
+            if v._stop_speech.is_set():
+                continue
+            text, pcm = item
+            with v._speak_lock:  # held per sentence only, so confirmations can still speak
+                v._speaking.set()
+                try:
+                    if pcm is None:
+                        v.emit("speak", {"env": [], "dur": round(len(text) / 14, 2)})
+                        v._windows_voice(text)
+                    else:
+                        samples, rate = pcm
+                        v.emit("speak", {"env": _envelope(samples, rate), "dur": round(len(samples) / rate, 2)})
+                        sd.play(samples, rate)
+                        end = time.time() + len(samples) / rate + 0.3
+                        while time.time() < end and not v._stop_speech.is_set():
+                            time.sleep(0.03)
+                        sd.stop()
+                finally:
+                    v._speaking.clear()
+        v.emit("speak_end", {})
+        time.sleep(0.15)
+        v._drain()
+        if v._wake is not None:
+            v._wake.reset()
 
 
 def _envelope(pcm: np.ndarray, rate: int, step_s: float = 0.05) -> list:

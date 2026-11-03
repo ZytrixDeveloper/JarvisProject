@@ -89,6 +89,7 @@
       <button>System status report</button>
       <button>Show me the tech news</button>
       <button>Remind me at 20:00 to stretch</button>
+      <button>Design me a racing drone</button>
     </div>
   </section>
 
@@ -102,7 +103,7 @@
       <ul class="news" id="news"><li class="empty">Loading headlines...</li></ul>
     </section>
     <section class="card">
-      <h3>Visual feed <span class="feed-kind" id="feedKind"></span></h3>
+      <h3>Visual feed <span><span class="feed-kind" id="feedKind"></span> <button class="mini glow" id="btnLiveCam" title="Live camera view">live cam</button></span></h3>
       <div class="feed" id="feed"><span>No scans yet. Ask "what's on my screen?"</span></div>
     </section>
   </aside>
@@ -137,6 +138,20 @@
   </div>
 </div>
 
+<div class="overlay" id="uninstallOverlay" hidden>
+  <div class="modal warn">
+    <div class="modal-tag">Uninstall Jarvis</div>
+    <h2>Are you sure?</h2>
+    <p class="modal-text">This removes Jarvis completely: the app, settings, memory, speech models and this PC's link to your account. Your screenshots and 3D designs stay in your folders.</p>
+    <label class="check-row"><input type="checkbox" id="unModels"> Also delete the AI models from Ollama (3-10 GB)</label>
+    <div class="actions">
+      <button id="btnUnNo">Cancel</button>
+      <button id="btnUnYes" class="primary">Yes, uninstall</button>
+    </div>
+    <small id="unStatus"></small>
+  </div>
+</div>
+
 <div class="overlay" id="loginOverlay" hidden>
   <div class="modal">
     <div class="login-ring"></div>
@@ -155,7 +170,9 @@
   </div>
   <form id="settingsForm" class="settings">
     <label>Jarvis calls you<input name="address_as" placeholder="sir"></label>
-    <label>Voice<select name="voice" id="voiceSelect"></select></label>
+    <label>Language<select name="language" id="langSelect"></select></label>
+    <label>English voice<select name="voice" id="voiceSelect"></select></label>
+    <label>Camera<select name="camera_index" id="camSelect"><option value="0">Default camera</option></select></label>
     <label class="toggle"><input type="checkbox" name="voice_enabled"><span>Speak replies out loud</span></label>
     <label>Wake word sensitivity <output id="sensOut"></output>
       <input type="range" name="wake_sensitivity" min="0.1" max="0.8" step="0.05"></label>
@@ -163,6 +180,8 @@
     <label>Protected apps (never closed)<input name="protected_apps" placeholder="whatsapp, discord"></label>
     <label class="toggle"><input type="checkbox" name="ask_before_risky"><span>Ask before risky actions</span></label>
     <label class="toggle"><input type="checkbox" name="show_overlay"><span>Glowing screen overlay while Jarvis works</span></label>
+    <label class="toggle"><input type="checkbox" name="show_orb"><span>Floating orb when Jarvis is hidden</span></label>
+    <label class="toggle"><input type="checkbox" name="game_mode"><span>Game mode: stay invisible over games and fullscreen apps</span></label>
     <label class="toggle"><input type="checkbox" name="clap_to_wake"><span>Clap twice to wake Jarvis</span></label>
     <label class="toggle"><input type="checkbox" name="show_on_wake"><span>Pop up Jarvis when woken</span></label>
     <label class="toggle"><input type="checkbox" name="start_with_windows"><span>Start with Windows</span></label>
@@ -182,10 +201,12 @@
     <div class="drawer-actions">
       <button type="submit" class="primary">Save</button>
       <button type="button" id="btnNewChat">New conversation</button>
+      <button type="button" id="btnLab">Open 3D Lab</button>
       <button type="button" id="btnCheckUpdates">Check for updates</button>
       <button type="button" id="btnDataFolder">Open data folder</button>
       <button type="button" id="btnSignOut" hidden>Unlink account</button>
       <button type="button" id="btnQuit" class="danger">Quit Jarvis</button>
+      <button type="button" id="btnUninstall" class="danger">Uninstall Jarvis</button>
     </div>
     <p class="note" id="hotkeyNote"></p>
   </form>

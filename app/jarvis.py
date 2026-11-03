@@ -16,8 +16,12 @@ def main():
     )
     # Only one Jarvis at a time.
     ctypes.windll.kernel32.CreateMutexW(None, False, "Global\\JarvisHUDSingleInstance")
-    if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-        ctypes.windll.user32.MessageBoxW(None, "Jarvis is already running (check the tray icon).", "J.A.R.V.I.S.", 0x40)
+    if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS: show the running Jarvis instead
+        user32 = ctypes.windll.user32
+        hwnd = user32.FindWindowW(None, "J.A.R.V.I.S.")
+        if hwnd:
+            user32.ShowWindow(hwnd, 9 if user32.IsIconic(hwnd) else 5)  # SW_RESTORE / SW_SHOW
+            user32.SetForegroundWindow(hwnd)
         return
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Jarvis.Assistant")
 

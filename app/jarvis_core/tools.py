@@ -131,6 +131,14 @@ def _proc_name(pid: int) -> str:
         return ""
 
 
+def bring_to_front(hwnd):
+    if user32.IsIconic(hwnd):
+        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+    user32.keybd_event(0x12, 0, 0, 0)  # tap Alt so Windows allows the focus change
+    user32.keybd_event(0x12, 0, 2, 0)
+    user32.SetForegroundWindow(hwnd)
+
+
 class FocusTracker(threading.Thread):
     """Remembers the last window the user used that isn't Jarvis, so typing goes there."""
 
@@ -304,6 +312,7 @@ class Toolbox:
         self.ctx = ctx
         self.focus = FocusTracker()
         self.focus.start()
+        self.camera = CameraFeed(settings, getattr(ctx, "camera_frame", None))
         self._apps = None
         self._tools = {name: getattr(self, name) for name in dir(self)
                        if getattr(getattr(self, name), "_is_tool", False)}
@@ -368,6 +377,10 @@ class Toolbox:
                 hit = apps[i] if i is not None else None
             if hit:
                 app_name, app_id = hit
+                existing = self._find_app_window(q, app_name)
+                if existing:  # don't stack up copies: switch to the one that's open
+                    bring_to_front(existing)
+                    return f"{app_name} was already open, so I brought it to the front."
                 subprocess.Popen(["explorer.exe", f"shell:AppsFolder\\{app_id}"], creationflags=NO_WINDOW)
                 return f"Opened {app_name}."
         exe = shutil.which(EXE_FALLBACK.get(q, q)) or shutil.which(q + ".exe")
@@ -376,6 +389,17 @@ class Toolbox:
             return f"Started {exe}."
         guesses = difflib.get_close_matches(q, [a[0].lower() for a in self._apps], n=3, cutoff=0.4)
         raise ToolError(f"No app called '{name}' found." + (f" Similar: {', '.join(guesses)}." if guesses else ""))
+
+    def _find_app_window(self, query: str, app_name: str):
+        targets = PROCESS_NAMES.get(query, [query.replace(" ", "")])
+        me = os.getpid()
+        for hwnd, title, pid in visible_windows():
+            proc = _proc_name(pid)
+            if pid == me or proc in CRITICAL_PROCESSES or proc == "explorer":
+                continue
+            if proc in targets or any(t and t in proc for t in targets) or app_name.lower() in title.lower():
+                return hwnd
+        return None
 
     @tool()
     def close_app(self, name: str) -> str:
@@ -582,7 +606,7 @@ class Toolbox:
         """Current weather and today's forecast.
 
         Args:
-            city: city name; leave empty for the user's home city / current location
+            city: only a city the user actually named; leave EMPTY to use the user's own location (never guess one)
         """
         city = city.strip() or self.settings["home_city"]
         lat = lon = None
@@ -882,21 +906,84 @@ class Toolbox:
         return f"Moved {p.name} to the Recycle Bin."
 
     @tool()
-    def run_command(self, command: str) -> str:
+    def run_command(self, command: str, as_admin: bool = False) -> str:
         """Run a PowerShell command and return its output. Only when no other tool can do the job.
 
         Args:
             command: the PowerShell command
+            as_admin: true only if the command needs administrator rights (Windows will show its UAC prompt)
         """
         if DANGEROUS_COMMANDS.search(command):
             raise ToolError("That command could damage the system, so it's blocked.")
-        if not self.ctx.confirm(f"Run this command?\n{command}"):
+        if not self.ctx.confirm(f"Run this command{' as administrator' if as_admin else ''}?\n{command}"):
             return "The user cancelled."
+        if as_admin:
+            return self._run_elevated(command)
         out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
                              capture_output=True, encoding="utf-8", errors="replace", timeout=90,
                              creationflags=NO_WINDOW)
         text = (out.stdout + ("\n" + out.stderr if out.stderr else "")).strip()
         return f"exit code {out.returncode}\n{text[:2500] or '(no output)'}"
+
+    def _run_elevated(self, command: str) -> str:
+        """Run via an elevated PowerShell. Windows asks the user (UAC) every time."""
+        import base64
+        import tempfile
+        out_file = os.path.join(tempfile.gettempdir(), f"jarvis_admin_{os.getpid()}.txt")
+        script = f"$ErrorActionPreference='Continue'; & {{ {command} }} *> '{out_file}'"
+        encoded = base64.b64encode(script.encode("utf-16-le")).decode()
+        launcher = ("Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden "
+                    f"-ArgumentList '-NoProfile','-EncodedCommand','{encoded}'")
+        res = subprocess.run(["powershell", "-NoProfile", "-Command", launcher], capture_output=True,
+                             encoding="utf-8", errors="replace", timeout=300, creationflags=NO_WINDOW)
+        if res.returncode != 0:
+            return "The administrator prompt was declined, so nothing was run."
+        try:
+            text = Path(out_file).read_text("utf-16", errors="replace").strip()
+        except (OSError, UnicodeError):
+            text = ""
+        finally:
+            Path(out_file).unlink(missing_ok=True)
+        return f"Ran as administrator.\n{text[:2500] or '(no output)'}"
+
+    @tool()
+    def build_project(self, request: str) -> str:
+        """Write a complete small software project as real files (website, web game, Python script, tool)
+        in Documents/Jarvis Projects and open it.
+
+        Args:
+            request: what to build, including every detail the user gave (purpose, style, features)
+        """
+        name, files = self.ctx.build_code(request)
+        folder = known_folder("documents") / "Jarvis Projects" / f"{name}_{dt.datetime.now():%Y%m%d_%H%M%S}"
+        for rel, content in files:
+            target = (folder / rel).resolve()
+            if folder.resolve() not in target.parents:
+                continue  # never write outside the project folder
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, "utf-8")
+        entry = folder / "index.html"
+        os.startfile(entry if entry.exists() else folder)
+        return (f"Built '{name}' with {len(files)} files ({', '.join(f for f, _ in files)}) in {folder} "
+                f"and opened {'it in the browser' if entry.exists() else 'the folder'}.")
+
+    @tool()
+    def design_3d(self, project: str) -> str:
+        """Design a 3D model plus a step-by-step build plan for a physical object or project
+        (car, house, robot, drone, desk, rocket...) and open it in the 3D Lab, where the user can move the parts.
+
+        Args:
+            project: what to design, including any details the user gave
+        """
+        design = self.ctx.design(project)
+        folder = known_folder("documents") / "Jarvis Designs"
+        folder.mkdir(parents=True, exist_ok=True)
+        slug = re.sub(r"[^\w\- ]", "", design["title"]).strip().replace(" ", "_")[:40] or "design"
+        path = folder / f"{slug}_{dt.datetime.now():%Y%m%d_%H%M%S}.json"
+        path.write_text(json.dumps(design, indent=1, ensure_ascii=False), "utf-8")
+        self.ctx.open_lab(design)
+        return (f"Opened '{design['title']}' in the 3D Lab: {len(design['parts'])} parts, "
+                f"{len(design['steps'])} build steps. Saved to {path}.")
 
     # ------------------------------------------------------------ vision
 
@@ -945,21 +1032,22 @@ class Toolbox:
         """
         import cv2
         from PIL import Image
-        cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-        try:
-            if not cam.isOpened():
-                raise ToolError("No webcam found.")
-            cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-            frame = None
-            for _ in range(12):  # let auto-exposure settle
-                ok, f = cam.read()
-                if ok:
-                    frame = f
-            if frame is None:
-                raise ToolError("The webcam didn't return an image.")
-        finally:
-            cam.release()
+        frame = self.camera.latest_frame()  # reuse the live view if it's running
+        if frame is None:
+            cam = cv2.VideoCapture(int(self.settings["camera_index"]), cv2.CAP_DSHOW)
+            try:
+                if not cam.isOpened():
+                    raise ToolError("That camera isn't available. Pick another one in Settings.")
+                cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                for _ in range(12):  # let auto-exposure settle
+                    ok, f = cam.read()
+                    if ok:
+                        frame = f
+                if frame is None:
+                    raise ToolError("The camera didn't return an image.")
+            finally:
+                cam.release()
         jpeg = _jpeg(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
         self.ctx.capture("camera", jpeg)
         return self.ctx.vision(question, jpeg)
@@ -979,7 +1067,98 @@ class Toolbox:
         return f"Screenshot saved to {path}."
 
 
+# ---------------------------------------------------------------- cameras
+
+def list_cameras() -> list[str]:
+    """Camera names in the same order OpenCV's DirectShow indexes them."""
+    try:
+        from pygrabber.dshow_graph import FilterGraph
+        return FilterGraph().get_input_devices()
+    except Exception:  # noqa: BLE001
+        log.warning("camera list failed", exc_info=True)
+        return []
+
+
+class CameraFeed:
+    """Live camera view for the HUD. While it runs, scans reuse its newest frame."""
+
+    def __init__(self, settings, on_frame):
+        self.settings = settings
+        self.on_frame = on_frame
+        self._stop = threading.Event()
+        self._thread = None
+        self._latest = None
+        self._lock = threading.Lock()
+
+    @property
+    def running(self):
+        return self._thread is not None and self._thread.is_alive()
+
+    def start(self):
+        if not self.running:
+            self._stop.clear()
+            self._thread = threading.Thread(target=self._run, name="camera", daemon=True)
+            self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+
+    def latest_frame(self):
+        with self._lock:
+            return None if self._latest is None or not self.running else self._latest.copy()
+
+    def _run(self):
+        import base64
+        import cv2
+        cam = cv2.VideoCapture(int(self.settings["camera_index"]), cv2.CAP_DSHOW)
+        try:
+            if not cam.isOpened():
+                if self.on_frame:
+                    self.on_frame(None)
+                return
+            cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            last = 0.0
+            while not self._stop.is_set():
+                ok, frame = cam.read()
+                if not ok:
+                    time.sleep(0.05)
+                    continue
+                with self._lock:
+                    self._latest = frame
+                if self.on_frame and time.time() - last > 0.12:  # ~8 fps preview
+                    last = time.time()
+                    small = cv2.resize(frame, (480, int(480 * frame.shape[0] / frame.shape[1])))
+                    ok, buf = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                    if ok:
+                        self.on_frame(base64.b64encode(buf.tobytes()).decode())
+        finally:
+            cam.release()
+            with self._lock:
+                self._latest = None
+
+
 # ---------------------------------------------------------------- news
+
+_live_cache = {}
+
+
+def live_video_id(channel_id: str):
+    """Video ID of a YouTube channel's current live stream (cached 20 min), or None."""
+    hit = _live_cache.get(channel_id)
+    if hit and time.time() - hit[0] < 1200:
+        return hit[1]
+    try:
+        # SOCS=CAI is YouTube's "rejected non-essential cookies" answer; without it EU users get a consent page.
+        html = requests.get(f"https://www.youtube.com/channel/{channel_id}/live", timeout=12,
+                            headers={**HTTP_HEADERS, "Cookie": "SOCS=CAI", "Accept-Language": "en-US,en;q=0.9"}).text
+    except requests.RequestException:
+        return None
+    m = re.search(r'<link rel="canonical" href="https://www\.youtube\.com/watch\?v=([\w-]{11})"', html)
+    vid = m.group(1) if m and '"isLive":true' in html else None
+    _live_cache[channel_id] = (time.time(), vid)
+    return vid
+
 
 def _age(published: str) -> str:
     from email.utils import parsedate_to_datetime

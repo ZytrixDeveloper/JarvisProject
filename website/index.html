@@ -35,7 +35,7 @@
   <section class="hero">
     <div class="wrap">
       <div>
-        <span class="eyebrow"><i></i>Beta v<span data-version></span> · Windows</span>
+        <span class="eyebrow"><i></i>Beta v<span data-version></span> · <span data-stat="online">-</span> online now</span>
         <h1>Just A Rather <span>Very Intelligent</span> System</h1>
         <p class="lead">Talk to your PC like Tony Stark. Say <b>"Hey Jarvis"</b> and it opens apps, finds files, plays music, reads your screen and answers questions, all powered by an AI that runs on your own computer.</p>
         <div class="hero-cta">
@@ -69,6 +69,26 @@
         <div class="term-bar"><i></i><i></i><i></i>&nbsp; jarvis · voice session</div>
         <div class="term-body" id="demo" aria-live="off"></div>
       </div>
+    </div>
+  </section>
+
+  <section class="block" id="world">
+    <div class="wrap world">
+      <div class="reveal">
+        <div class="section-head">
+          <div class="tag">Live network</div>
+          <h2>Jarvis around the world</h2>
+          <p>Every glowing point is a country where Jarvis is running. Green ones are online right now. Drag the Earth to spin it.</p>
+        </div>
+        <div class="live-stats">
+          <div class="stat-card online"><b data-stat="online">-</b><span><i></i>Online now</span></div>
+          <div class="stat-card"><b data-stat="users">-</b><span>Users</span></div>
+          <div class="stat-card"><b data-stat="devices">-</b><span>PCs linked</span></div>
+          <div class="stat-card"><b data-stat="countries">-</b><span>Countries</span></div>
+        </div>
+        <p class="note">Updates every 30 seconds. Only the country of each PC is shown, never an exact location.</p>
+      </div>
+      <div class="earth-stage reveal"><canvas id="earth" aria-label="3D globe of Jarvis users"></canvas></div>
     </div>
   </section>
 
@@ -110,6 +130,21 @@
           <h3>Your account</h3>
           <p>Sign in once in the browser and your PC is linked. See and unlink your devices any time from your account page.</p>
         </article>
+        <article class="card feature reveal" data-tilt>
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7Z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg></div>
+          <h3>3D Lab</h3>
+          <p>"Design me a racing drone" builds a 3D model with a build plan. Move, rotate, resize and explode every part.</p>
+        </article>
+        <article class="card feature reveal" data-tilt>
+          <div class="icon"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m10 9 5 3-5 3Z"/></svg></div>
+          <h3>Live TV &amp; News Hub</h3>
+          <p>A holographic news window with live channels like Sky News, Al Jazeera and DW, plus headlines by topic.</p>
+        </article>
+        <article class="card feature reveal" data-tilt>
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="m8 6-6 6 6 6M16 6l6 6-6 6M14 4l-4 16"/></svg></div>
+          <h3>Code builder</h3>
+          <p>"Build me a website for my football club" writes a complete project and opens it. Quiet game mode keeps it out of your way.</p>
+        </article>
       </div>
     </div>
   </section>
@@ -145,6 +180,8 @@
         <span>"Find my CV PDF"</span><span>"Write a shopping list to a file"</span>
         <span>"Make a folder called School"</span><span>"Type hello world"</span><span>"Press Ctrl+S"</span>
         <span>"Set a 10 minute pizza timer"</span><span>"System status"</span><span>"Lock my PC"</span>
+        <span>"Design me a racing drone"</span><span>"Build me a portfolio website"</span><span>"Put on Sky News"</span>
+        <span>"Remind me at 18:30 to call mum"</span><span>"Remember my favourite team is Slovan"</span>
       </div>
     </div>
   </section>
@@ -201,13 +238,16 @@
             <li>Confirmations + protected apps</li>
             <li>Iron Man style HUD with live diagnostics</li>
             <li>Website account linked to the app</li>
+            <li>Speaks your language, floating orb, game mode</li>
+            <li>3D Lab, Live TV, code builder, auto-updates</li>
           </ul>
         </div>
         <div class="card reveal">
           <h3><span class="badge">NEXT</span> Main version</h3>
           <ul>
             <li>Long-term memory of your preferences</li>
-            <li>Reminders, alarms and a morning briefing</li>
+            <li>Now Playing card with album art for any music app</li>
+            <li>Morning briefing with weather, news and reminders</li>
             <li>Face recognition: only answers to you</li>
             <li>Hand-gesture control through the webcam</li>
             <li>Discord / WhatsApp messages (with confirmation)</li>
@@ -228,7 +268,8 @@
         <details class="card reveal"><summary>Is Jarvis free?</summary><p>Yes. The AI runs on your own PC through Ollama, so there are no monthly costs.</p></details>
         <details class="card reveal"><summary>Does it send my conversations anywhere?</summary><p>No. Your voice is transcribed on your PC and the AI runs locally. Only web searches and the speaking voice use the internet. Your account only stores your email and which PCs are linked.</p></details>
         <details class="card reveal"><summary>Can it break my computer?</summary><p>Jarvis asks before anything risky (deleting, shutting down, running commands), sends deleted files to the Recycle Bin, refuses to touch system folders and never closes apps on your protected list.</p></details>
-        <details class="card reveal"><summary>Which languages does it understand?</summary><p>Version 1 listens and speaks English. More languages are planned.</p></details>
+        <details class="card reveal"><summary>Does the world map show where I live?</summary><p>No. Each linked PC reports only its country, rounded to a whole map region. No city, address or personal details are ever shown.</p></details>
+        <details class="card reveal"><summary>Which languages does it speak?</summary><p>Jarvis answers in the language you talk to it in, with a native voice for over 25 languages including Slovak, Czech, German and Polish.</p></details>
         <details class="card reveal"><summary>My PC has no NVIDIA GPU. Will it work?</summary><p>Yes, but answers are slower because the AI runs on the CPU. You can pick a smaller model in Settings.</p></details>
       </div>
     </div>
@@ -248,6 +289,15 @@
 <script src="assets/site.js"></script>
 <script type="module">
   import { initHologram } from "./assets/hologram.js";
+  import { initEarth } from "./assets/earth.js";
+  const earth = initEarth(document.getElementById("earth"));
+  window.jarvisEarth = earth;
+  async function refreshStats() {
+    const stats = await loadStats();
+    if (stats && earth) earth.setPlaces(stats.places);
+  }
+  refreshStats();
+  setInterval(refreshStats, 30000);
   const holo = document.getElementById("holo");
   if (!initHologram(holo)) {
     // No WebGL: swap in the 2D animated reactor.

@@ -29,6 +29,7 @@ send2trash
 keyboard
 mss
 opencv-python
+pygrabber
 
 # Packaging
 pyinstaller

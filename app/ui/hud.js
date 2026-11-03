@@ -19,7 +19,7 @@
     move_file: "Move", delete_file: "Delete", run_command: "Command",
     look_at_screen: "Screen scan", look_through_camera: "Camera scan", take_screenshot: "Screenshot",
     get_news: "News Hub", read_clipboard: "Clipboard", remember: "Memory", forget: "Memory",
-    set_reminder: "Reminder",
+    set_reminder: "Reminder", design_3d: "3D Lab", build_project: "Code builder",
   };
 
   /* ------------------------------------------------------------------ reactor animation */
@@ -220,7 +220,23 @@
       $("heard").textContent = text;
       $("reply").textContent = "";
     },
-    reply({ text }) { typeOut($("reply"), text); },
+    reply_delta({ text }) {
+      const el = $("reply");
+      if (!el._streaming) { clearInterval(el._typing); el.textContent = ""; el._streaming = true; }
+      el.textContent += text;
+    },
+    reply({ text }) {
+      const el = $("reply");
+      if (el._streaming) { el.textContent = text; el._streaming = false; } else typeOut(el, text);
+    },
+    camera_frame({ img, error }) {
+      const feed = $("feed");
+      if (error) { toast(error); setLiveCam(false); return; }
+      let image = feed.querySelector("img.cam");
+      if (!image) { feed.innerHTML = ""; image = new Image(); image.className = "cam"; feed.append(image); }
+      image.src = `data:image/jpeg;base64,${img}`;
+      $("feedKind").textContent = "LIVE";
+    },
     speak({ env }) { R.speech = { env, start: performance.now() }; },
     speak_end() { R.speech = null; },
     notice({ text }) { toast(text); },
@@ -361,6 +377,23 @@
     $("sensOut").textContent = form.elements.wake_sensitivity.value;
   }
 
+  let liveCam = false;
+  function setLiveCam(on) {
+    liveCam = on;
+    $("btnLiveCam").classList.toggle("on", on);
+    $("feed").classList.toggle("live", on);
+    if (!on) { $("feed").querySelector("img.cam")?.remove(); $("feedKind").textContent = ""; }
+    api?.camera_live(on);
+  }
+
+  async function fillCameras(selected) {
+    const names = (await api.list_cameras()) || [];
+    const sel = $("camSelect");
+    sel.innerHTML = "";
+    (names.length ? names : ["Default camera"]).forEach((n, i) => sel.append(new Option(n, String(i))));
+    sel.value = String(selected || 0);
+  }
+
   function openSettings(open) {
     $("settings").classList.toggle("open", open);
     $("settings").setAttribute("aria-hidden", String(!open));
@@ -386,6 +419,14 @@
     });
     $("btnMin").addEventListener("click", () => api?.minimize());
     $("btnMax").addEventListener("click", () => api?.toggle_maximize());
+    // Double-click the title bar: fullscreen <-> window. The drag region swallows "dblclick",
+    // so detect two quick presses instead.
+    let lastDown = 0;
+    window.addEventListener("mousedown", (e) => {  // capture phase: runs before the window-drag code
+      if (!e.target.closest(".titlebar") || e.target.closest("button")) return;
+      const now = Date.now();
+      if (now - lastDown < 400) { lastDown = 0; api?.toggle_maximize(); } else lastDown = now;
+    }, true);
     $("btnClose").addEventListener("click", () => api?.close());
     $("btnSettings").addEventListener("click", () => openSettings(!$("settings").classList.contains("open")));
     $("btnCloseSettings").addEventListener("click", () => openSettings(false));
@@ -396,6 +437,16 @@
     $("btnUpdLater").addEventListener("click", () => { $("updateOverlay").hidden = true; });
     $("updateChip").addEventListener("click", () => { $("updateOverlay").hidden = false; });
     $("btnCheckUpdates").addEventListener("click", () => { api?.check_updates(); toast("Checking for updates..."); });
+    $("btnLiveCam").addEventListener("click", () => setLiveCam(!liveCam));
+    $("btnLab").addEventListener("click", () => { api?.open_lab(); openSettings(false); });
+    $("btnUninstall").addEventListener("click", () => { openSettings(false); $("unStatus").textContent = ""; $("uninstallOverlay").hidden = false; });
+    $("btnUnNo").addEventListener("click", () => { $("uninstallOverlay").hidden = true; });
+    $("btnUnYes").addEventListener("click", async () => {
+      $("btnUnYes").disabled = true;
+      $("unStatus").textContent = "Uninstalling... Jarvis will close.";
+      const res = await api.uninstall($("unModels").checked);
+      if (res !== "ok") { $("unStatus").textContent = res; $("btnUnYes").disabled = false; }
+    });
     $("btnNewChat").addEventListener("click", () => { api?.new_conversation(); toast("Started a new conversation"); });
     $("btnDataFolder").addEventListener("click", () => api?.open_data_folder());
     $("btnSignOut").addEventListener("click", () => { api?.sign_out(); openSettings(false); });
@@ -435,7 +486,10 @@
     $("ver").textContent = `v${info.version}`;
     user = info.user;
     accountRequired = info.accountConfigured;
+    const langSel = $("langSelect");
+    for (const [code, label] of info.languages) langSel.append(new Option(label, code));
     fillSettings(info.settings, info.voices);
+    fillCameras(info.settings.camera_index);
     $("hotkeyNote").textContent = `Push-to-talk hotkey: ${info.hotkey.toUpperCase()}. Esc stops Jarvis talking.`;
     $("btnMic").title = `Listen now (${info.hotkey.toUpperCase()})`;
   }

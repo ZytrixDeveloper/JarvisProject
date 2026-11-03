@@ -17,11 +17,13 @@ import webview
 from . import tools as tools_mod
 from . import updater
 from .account import Account
-from .brain import Brain
+from .brain import Brain, SentenceSplitter
 from .config import APP_NAME, APP_VERSION, DATA_DIR, FROZEN, Settings, resource_path
-from .overlay import Overlay
+from ctypes import wintypes
+
+from .overlay import Overlay, active_work_area, fullscreen_app_active
 from .tools import Toolbox
-from .voice import VOICES, Voice
+from .voice import LANGUAGES, VOICES, Voice
 
 log = logging.getLogger("jarvis.app")
 user32 = ctypes.windll.user32
@@ -42,6 +44,7 @@ TOOL_CAPTIONS = {
     "move_file": "Moving {source}", "delete_file": "Moving {path} to the Recycle Bin",
     "run_command": "Running a command", "look_at_screen": "Analysing your screen",
     "look_through_camera": "Scanning through the camera", "take_screenshot": "Taking a screenshot",
+    "design_3d": "Designing {project} in the 3D Lab", "build_project": "Building {request}",
 }
 
 
@@ -52,6 +55,31 @@ def tool_caption(name, args) -> str:
     except (KeyError, IndexError):
         text = template.split(" {")[0].split(":")[0]
     return f"JARVIS  ·  {text}"
+
+
+class LabApi:
+    """Functions the 3D Lab window's JavaScript can call."""
+
+    def __init__(self, app):
+        self._app = app
+
+    def get_design(self):
+        return self._app.lab_design
+
+    def redesign(self, prompt):
+        design = self._app.brain.design(prompt)
+        self._app.lab_design = design
+        return design
+
+    def save(self, design):
+        folder = tools_mod.known_folder("documents") / "Jarvis Designs"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / f"design_{time.strftime('%Y%m%d_%H%M%S')}.json"
+        path.write_text(json.dumps(design, indent=1, ensure_ascii=False), "utf-8")
+        return str(path)
+
+    def close(self):
+        self._app.close_lab()
 
 
 class NewsApi:
@@ -65,6 +93,9 @@ class NewsApi:
 
     def load(self, topic=""):
         return tools_mod.fetch_news(topic or "", 18)
+
+    def live_video(self, channel_id):
+        return tools_mod.live_video_id(str(channel_id))
 
     def open_url(self, url):
         if isinstance(url, str) and url.startswith(("https://", "http://")):
@@ -85,7 +116,8 @@ class Api:
         a = self._app
         a.ui_ready.set()
         return {"version": APP_VERSION, "user": a.account.user, "accountConfigured": a.account.configured,
-                "settings": a.settings.public(), "voices": VOICES, "hotkey": a.settings["hotkey"]}
+                "settings": a.settings.public(), "voices": VOICES, "languages": LANGUAGES,
+                "hotkey": a.settings["hotkey"], "installed": FROZEN}
 
     def send_text(self, text):
         text = (text or "").strip()
@@ -135,6 +167,19 @@ class Api:
     def check_updates(self):
         threading.Thread(target=self._app.check_updates, args=(True,), daemon=True).start()
 
+    def list_cameras(self):
+        return tools_mod.list_cameras()
+
+    def camera_live(self, on):
+        cam = self._app.toolbox.camera
+        cam.start() if on else cam.stop()
+
+    def open_lab(self):
+        self._app.open_lab(self._app.lab_design)
+
+    def uninstall(self, remove_models):
+        return self._app.uninstall(bool(remove_models))
+
     def install_update(self):
         threading.Thread(target=self._app.install_update, daemon=True).start()
 
@@ -142,9 +187,7 @@ class Api:
         self._app.window.minimize()
 
     def toggle_maximize(self):
-        w = self._app.window
-        w.restore() if getattr(w, "_jarvis_max", False) else w.maximize()
-        w._jarvis_max = not getattr(w, "_jarvis_max", False)
+        self._app.set_fullscreen(not self._app.fullscreen)
 
     def close(self):
         self._app.hide_to_tray()
@@ -161,7 +204,10 @@ class JarvisApp:
         self.news_window = None
         self.news_topic = ""
         self.tray = None
-        self.overlay = Overlay()
+        self.lab_window = None
+        self.lab_design = None
+        self._hud = None
+        self.fullscreen = False
         self._events = queue.Queue()
         self.ui_ready = threading.Event()
         self._busy = threading.Lock()
@@ -173,14 +219,24 @@ class JarvisApp:
         self.voice.on_wake = self._on_wake
         if quiet:
             self.voice.speak = lambda text: None
+        self.overlay = Overlay(self.settings, on_open=self.show_window, on_listen=self.voice.trigger,
+                               hud_visible=self.hud_shown)
         self.account = Account(self.settings)
         self.account.enabled = require_account
+
+    def hud_shown(self) -> bool:
+        """Cheap check (called 30x a second by the orb): is the HUD on screen and not minimised?"""
+        if not self._hud or not user32.IsWindow(self._hud):
+            self._hud = user32.FindWindowW(None, WINDOW_TITLE)
+        return bool(self._hud) and bool(user32.IsWindowVisible(self._hud)) and not user32.IsIconic(self._hud)
 
     # ------------------------------------------------------------ events to the HUD
 
     def emit(self, kind, data=None):
         if kind == "tool" and data and data.get("state") == "run" and self.settings["show_overlay"]:
             self.overlay.show(tool_caption(data["name"], data.get("args")))
+        elif kind == "state" and data:
+            self.overlay.set_state(data["state"])
         self._events.put({"type": kind, **(data or {})})
 
     def _pump(self):
@@ -230,10 +286,30 @@ class JarvisApp:
             self.voice.busy(True)
             self.emit("heard", {"text": text, "source": source})
             self.emit("state", {"state": "thinking"})
-            reply = self.brain.ask(text)
+            # Speak while the reply is still streaming in: sentence 1 plays while sentence 2 is made.
+            stream = None if self.quiet else self.voice.stream()
+            player = threading.Thread(target=stream.play, daemon=True) if stream else None
+            if player:
+                player.start()
+            splitter = SentenceSplitter(stream.add) if stream else None
+            streamed = []
+
+            def on_delta(delta):
+                streamed.append(delta)
+                self.emit("reply_delta", {"text": delta})
+                if splitter:
+                    splitter.feed(delta)
+
+            reply = self.brain.ask(text, on_delta=on_delta)
             self.emit("reply", {"text": reply})
-            self.emit("state", {"state": "speaking"})
-            self.voice.speak(reply)
+            if stream:
+                if streamed:
+                    splitter.flush()
+                else:  # error messages etc. arrive without streaming
+                    stream.add(reply)
+                stream.finish()
+                self.emit("state", {"state": "speaking"})
+                player.join(timeout=180)
         except Exception:  # noqa: BLE001 - never let one bad request kill the app
             log.exception("command failed")
             self.emit("reply", {"text": "Something went wrong on my side. The details are in the log."})
@@ -278,6 +354,40 @@ class JarvisApp:
     def announce(self, text):
         self.emit("reply", {"text": text, "announce": True})
         threading.Thread(target=self.voice.speak, args=(text,), daemon=True).start()
+
+    def camera_frame(self, img):
+        self.emit("camera_frame", {"img": img} if img else {"error": "That camera isn't available."})
+
+    def build_code(self, request):
+        return self.brain.build_project(request)
+
+    def design(self, project):
+        self.emit("state", {"state": "scanning"})
+        try:
+            return self.brain.design(project)
+        finally:
+            self.emit("state", {"state": "thinking"})
+
+    def open_lab(self, design):
+        self.lab_design = design
+        if self.lab_window is not None:
+            try:
+                self.lab_window.show()
+                self.lab_window.restore()
+                self.lab_window.evaluate_js(f"window.lab && lab.load({json.dumps(design)})")
+                return
+            except Exception:  # noqa: BLE001 - window was closed
+                self.lab_window = None
+        self.lab_window = webview.create_window(
+            "J.A.R.V.I.S. 3D Lab", str(resource_path("ui/lab.html")), js_api=LabApi(self),
+            width=1280, height=800, min_size=(800, 560), frameless=True, easy_drag=False,
+            background_color="#02070c")
+        self.lab_window.events.closed += lambda: setattr(self, "lab_window", None)
+
+    def close_lab(self):
+        if self.lab_window is not None:
+            window, self.lab_window = self.lab_window, None
+            window.destroy()
 
     def show_news(self, topic, items, open_hub=True):
         self.emit("news", {"topic": topic, "items": items})
@@ -387,7 +497,10 @@ class JarvisApp:
     def save_settings(self, values):
         allowed = {"address_as", "model", "voice", "voice_rate", "voice_enabled", "wake_sensitivity",
                    "protected_apps", "ask_before_risky", "home_city", "start_with_windows", "whisper_model",
-                   "show_overlay", "clap_to_wake", "show_on_wake"}
+                   "show_overlay", "clap_to_wake", "show_on_wake", "language", "camera_index", "show_orb",
+                   "game_mode"}
+        if "camera_index" in values:
+            values["camera_index"] = int(values["camera_index"] or 0)
         clean = {k: v for k, v in values.items() if k in allowed}
         if isinstance(clean.get("protected_apps"), str):
             clean["protected_apps"] = [p.strip() for p in clean["protected_apps"].split(",") if p.strip()]
@@ -396,6 +509,22 @@ class JarvisApp:
         self.settings.update(clean)
         if "start_with_windows" in clean:
             set_autostart(bool(clean["start_with_windows"]))
+        if "camera_index" in clean and self.toolbox.camera.running:  # switch the live view to the new camera
+            self.toolbox.camera.stop()
+            threading.Timer(0.5, self.toolbox.camera.start).start()
+
+    def _locate(self):
+        """Approximate location from the IP address, so Jarvis knows your city and time zone."""
+        import requests
+        try:
+            ip = requests.get("https://ipwho.is/", timeout=8).json()
+            if ip.get("city"):
+                tz = (ip.get("timezone") or {}).get("id", "")
+                self.brain.location = f"The user is in or near {ip['city']}, {ip.get('country', '')} (time zone {tz})."
+                self.account.location = {"country": ip.get("country"), "lat": round(float(ip["latitude"])),
+                                         "lon": round(float(ip["longitude"]))}
+        except Exception:  # noqa: BLE001 - offline
+            log.warning("location lookup failed", exc_info=True)
 
     # ------------------------------------------------------------ startup
 
@@ -404,6 +533,8 @@ class JarvisApp:
 
     def boot(self):
         threading.Thread(target=self._pump, daemon=True).start()
+        if self.ui_ready.wait(20) and not self.background:
+            self.set_fullscreen(True)
         time.sleep(0.4)
         self._step("core", "Core systems", "ok", f"v{APP_VERSION}")
 
@@ -430,6 +561,7 @@ class JarvisApp:
         threading.Thread(target=self._stats_loop, daemon=True).start()
         threading.Thread(target=self._news_loop, daemon=True).start()
         threading.Thread(target=self._update_loop, daemon=True).start()
+        threading.Thread(target=self._locate, daemon=True).start()
         self._register_hotkey()
 
     def _boot_model(self):
@@ -521,13 +653,50 @@ class JarvisApp:
             self.tray = None
 
     def show_window(self):
-        if self.window:
-            self.window.show()
-            self.window.restore()
+        """Bring the HUD back (from tray, orb or minimised) without shrinking it out of fullscreen."""
+        if not self.window:
+            return
+        self.window.show()
+        hwnd = user32.FindWindowW(None, WINDOW_TITLE)
+        if hwnd:
+            if user32.IsIconic(hwnd):
+                user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            if self.fullscreen:
+                self.set_fullscreen(True)
+            tools_mod.bring_to_front(hwnd)
+
+    def set_fullscreen(self, on: bool):
+        """Fill the monitor's work area (taskbar stays visible) or go back to a normal window.
+        Done by hand: the built-in maximise of a borderless window leaves a 25 px gap."""
+        hwnd = user32.FindWindowW(None, WINDOW_TITLE)
+        if not hwnd:
+            return
+        old = user32.SetThreadDpiAwarenessContext(ctypes.c_void_p(-4))  # real pixels
+        try:
+            if user32.IsZoomed(hwnd):
+                user32.ShowWindow(hwnd, 9)
+            left, top, right, bottom = active_work_area(hwnd)
+            if on:
+                r = wintypes.RECT()
+                user32.GetWindowRect(hwnd, ctypes.byref(r))
+                if not self.fullscreen:
+                    self._normal_rect = (r.left, r.top, r.right - r.left, r.bottom - r.top)
+                x, y, w, h = left, top, right - left, bottom - top
+            else:
+                w, h = min(1240, right - left), min(780, bottom - top)
+                x, y, w, h = getattr(self, "_normal_rect", None) or (
+                    left + (right - left - w) // 2, top + (bottom - top - h) // 2, w, h)
+            user32.SetWindowPos(hwnd, None, x, y, w, h, 0x0004 | 0x0010)  # NOZORDER | NOACTIVATE
+            self.fullscreen = on
+            log.info("HUD %s at %s", "fullscreen" if on else "windowed", (x, y, w, h))
+        finally:
+            user32.SetThreadDpiAwarenessContext(old)
 
     def _on_wake(self):
         """Woken by "Hey Jarvis", a double clap or the hotkey: bring the HUD up if it was hidden."""
-        if self.settings["show_on_wake"] and not self._hud_hwnd():
+        self.brain.warm_up_async()  # load the AI into the GPU while you're still talking
+        gaming = self.settings["game_mode"] and fullscreen_app_active()
+        if self.settings["show_on_wake"] and not gaming and not self.hud_shown():
             self.show_window()
 
     def hide_to_tray(self):
@@ -557,10 +726,29 @@ class JarvisApp:
     def run(self):
         self.window = webview.create_window(
             WINDOW_TITLE, str(resource_path("ui/index.html")), js_api=Api(self),
-            width=1240, height=780, min_size=(980, 640), frameless=True, easy_drag=False,
+            width=1240, height=780, min_size=(760, 520), frameless=True, easy_drag=False,
             background_color="#03070d", hidden=self.background and self.tray_possible())
         self._start_tray()
-        webview.start(self.boot, private_mode=False, storage_path=str(DATA_DIR / "webview"))
+        # http_server: pages are served from 127.0.0.1, which YouTube live embeds need (file:// is refused)
+        # private_mode: no disk cache, so an updated Jarvis never shows a stale copy of its own HUD files.
+        webview.start(self.boot, private_mode=True, http_server=True)
+
+    # ------------------------------------------------------------ uninstall
+
+    def uninstall(self, remove_models: bool):
+        """Remove Jarvis completely: device link, app files, settings, memory, speech models."""
+        unins = os.path.join(os.path.dirname(sys.executable), "unins000.exe")
+        if not FROZEN or not os.path.exists(unins):
+            return "Uninstall only works in the installed Jarvis (this copy runs from source code)."
+        try:
+            self.account.sign_out()
+        except Exception:  # noqa: BLE001 - offline: uninstall anyway
+            log.warning("sign-out during uninstall failed", exc_info=True)
+        args = [unins, "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"] + (["/REMOVEMODELS"] if remove_models else [])
+        import subprocess
+        subprocess.Popen(args, close_fds=True)
+        threading.Timer(1.0, self.quit).start()
+        return "ok"
 
 
 def set_autostart(enabled: bool):

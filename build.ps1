@@ -22,6 +22,7 @@ try {
         --collect-submodules pystray `
         --collect-submodules pycaw `
         --collect-submodules comtypes `
+        --collect-submodules pygrabber `
         --collect-all screen_brightness_control `
         --hidden-import wave `
         --exclude-module tkinter `
